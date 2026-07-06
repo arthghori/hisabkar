@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<title>ખર્ચા હિસાબ</title>
+<meta name="description" content="સભ્યો વચ્ચે ખર્ચાનો હિસાબ - કોણે કોને કેટલા પૈસા આપવાના છે" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="white" />
+<meta name="apple-mobile-web-app-title" content="ખર્ચા" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23ffffff' width='180' height='180'/><circle cx='90' cy='90' r='75' fill='%230b8457'/><text x='90' y='115' font-size='90' font-weight='bold' fill='%23ffffff' text-anchor='middle' font-family='sans-serif'>₹</text></svg>" />
+<link rel="manifest" href="manifest.json" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ============ TRIP PICKER SCREEN ============ -->
+<div class="app" id="tripPickerRoot">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-mark">₹</span>
+      <div class="brand-text">
+        <h1 data-i18n="appTitle">ખર્ચા હિસાબ</h1>
+        <p data-i18n="chooseTripSub">તમારી ટ્રિપ પસંદ કરો</p>
+      </div>
+    </div>
+    <button class="lang-toggle">
+      <span class="lang-opt" data-lang="gu">ગુજ</span>
+      <span class="lang-opt" data-lang="en">EN</span>
+    </button>
+    <button id="pwaInstallBtn" class="icon-btn" title="Download App" style="display:none;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
+  </header>
+
+  <main class="screens">
+    <h2 class="section-title" data-i18n="allTripsTitle">બધી ટ્રિપ</h2>
+    <div id="tripsList" class="card-list">
+      <p class="empty-hint" data-i18n="noTrips">હજુ કોઈ ટ્રિપ ઉમેરી નથી</p>
+    </div>
+  </main>
+
+  <button id="fabTrip" class="fab" aria-label="Add trip">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div class="app" id="mainAppRoot" style="display:none;">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <button id="backToTrips" class="icon-btn" aria-label="Back to trips">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="topbar-brand">
+      <span class="brand-mark">₹</span>
+      <div class="brand-text">
+        <h1 id="currentTripName">ખર્ચા હિસાબ</h1>
+        <p id="topbarSub" data-i18n="subHome">કોણે કોને આપવાના છે</p>
+      </div>
+    </div>
+    <button class="lang-toggle">
+      <span class="lang-opt" data-lang="gu">ગુજ</span>
+      <span class="lang-opt" data-lang="en">EN</span>
+    </button>
+    <button id="pwaInstallBtn2" class="icon-btn" title="Download App" style="display:none;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
+  </header>
+
+  <main class="screens">
+
+    <!-- HOME / SETTLEMENT -->
+    <section id="screen-home" class="screen active">
+      <div class="summary-row" id="summaryRow">
+        <div class="summary-card">
+          <span class="summary-label" data-i18n="totalExpenseLabel">કુલ ખર્ચ</span>
+          <span class="summary-value" id="totalExpense">₹0</span>
+        </div>
+        <!-- Members summary now shows entries and total people in separate card -->
+          <div class="summary-card">
+            <span class="summary-label">સભ્યો (Entries)</span>
+            <div class="summary-value">
+              <div id="totalMemberEntries">0</div>
+              <div id="totalMemberPeople" style="font-size:0.85rem;color:var(--muted)">0</div>
+              <!-- <div id="totalMemberBreakdown" style="font-size:0.85rem;color:var(--muted);margin-top:6px"></div> -->
+            </div>
+          </div>
+      </div>
+
+      <h2 class="section-title" data-i18n="settlementTitle">પતાવટ (Settlement)</h2>
+      <div id="settlementList" class="card-list">
+        <p class="empty-hint" data-i18n="noExpensesShort">હજુ કોઈ ખર્ચ ઉમેર્યો નથી</p>
+      </div>
+
+      <h2 class="section-title" data-i18n="balanceTitle">બેલેન્સ પ્રમાણે</h2>
+      <div id="balanceList" class="card-list"></div>
+    </section>
+
+    <!-- MEMBERS -->
+    <section id="screen-members" class="screen">
+      <h2 class="section-title" data-i18n="allMembersTitle">બધા સભ્યો</h2>
+      <div id="membersList" class="card-list">
+        <p class="empty-hint" data-i18n="noMembers">હજુ કોઈ સભ્ય ઉમેર્યો નથી</p>
+      </div>
+    </section>
+
+    <!-- EXPENSES -->
+    <section id="screen-expenses" class="screen">
+      <h2 class="section-title" data-i18n="allExpensesTitle">બધા ખર્ચ</h2>
+      <div id="expensesList" class="card-list">
+        <p class="empty-hint" data-i18n="noExpensesShort">હજુ કોઈ ખર્ચ ઉમેર્યો નથી</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Floating add button -->
+  <button id="fab" class="fab" aria-label="Add">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+  <!-- Bottom nav -->
+  <nav class="bottomnav">
+    <button class="nav-btn active" data-screen="home">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+      <span data-i18n="navHome">હોમ</span>
+    </button>
+    <button class="nav-btn" data-screen="members">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="8.5" r="2.6"/><path d="M15.5 14.2c2.8.4 4.9 2.5 4.9 5.8"/></svg>
+      <span data-i18n="navMembers">સભ્યો</span>
+    </button>
+    <button class="nav-btn" data-screen="expenses">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+      <span data-i18n="navExpenses">ખર્ચ</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- MODAL: Add / Edit Trip -->
+<div id="tripModal" class="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 data-i18n="tripModalTitleNew">નવી ટ્રિપ ઉમેરો</h3>
+    <label class="field">
+      <span data-i18n="tripNameLabel">ટ્રિપનું નામ</span>
+      <input type="text" id="tripName" data-i18n-placeholder="tripNamePlaceholder" placeholder="દા.ત. ગોવા ટ્રિપ" />
+    </label>
+    <label class="field">
+      <span data-i18n="tripDateLabel">શરૂઆતની તારીખ</span>
+      <input type="date" id="tripStartDate" />
+    </label>
+    <input type="hidden" id="tripEditId" />
+    <div class="modal-actions">
+      <button class="btn-ghost" data-i18n="cancelBtn" onclick="closeModal('tripModal')">રદ કરો</button>
+      <button class="btn-primary" id="tripSaveBtn" data-i18n="saveBtn">સેવ કરો</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add / Edit Member -->
+<div id="memberModal" class="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="memberModalTitle" data-i18n="memberModalTitleNew">નવો સભ્ય ઉમેરો</h3>
+    <label class="field">
+      <span data-i18n="nameLabel">નામ</span>
+      <input type="text" id="memberName" data-i18n-placeholder="namePlaceholder" placeholder="દા.ત. નિશિત" />
+    </label>
+    <label class="field">
+      <span data-i18n="countLabel">કેટલા લોકો (સભ્ય પોતે સહિત)</span>
+      <input type="number" id="memberCount" min="1" placeholder="દા.ત. 4" />
+    </label>
+    <input type="hidden" id="memberEditId" />
+    <div class="modal-actions">
+      <button class="btn-secondary" id="memberDeleteBtn" data-i18n="deleteBtn" style="display:none;">ડિલીટ કરો</button>
+      <button class="btn-ghost" data-i18n="cancelBtn" onclick="closeModal('memberModal')">રદ કરો</button>
+      <button class="btn-primary" id="memberSaveBtn" data-i18n="saveBtn">સેવ કરો</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Expense -->
+<div id="expenseModal" class="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="expenseModalTitle" data-i18n="expenseModalTitleNew">નવો ખર્ચ ઉમેરો</h3>
+    <label class="field">
+      <span data-i18n="amountLabel">રકમ (₹)</span>
+      <input type="number" id="expenseAmount" min="0" placeholder="દા.ત. 700" />
+    </label>
+    <label class="field">
+      <span data-i18n="paidByLabel">કોણે ચૂકવ્યા (Paid by)</span>
+      <select id="expensePaidBy"></select>
+    </label>
+    <label class="field">
+      <span data-i18n="splitAmongLabel">કોના માટે (Split among)</span>
+      <div id="expenseMembersCheck" class="checkbox-list"></div>
+    </label>
+    <label class="field">
+      <span data-i18n="dateLabel">તારીખ</span>
+      <input type="date" id="expenseDate" />
+    </label>
+    <label class="field">
+      <span data-i18n="noteLabel">નોંધ (વૈકલ્પિક)</span>
+      <input type="text" id="expenseNote" data-i18n-placeholder="notePlaceholder" placeholder="દા.ત. જમવાનું" />
+    </label>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="expenseDeleteBtn" data-i18n="deleteBtn" style="display:none;">ડિલીટ કરો</button>
+      <button class="btn-ghost" data-i18n="cancelBtn" onclick="closeModal('expenseModal')">રદ કરો</button>
+      <button class="btn-primary" id="expenseSaveBtn" data-i18n="saveBtn">સેવ કરો</button>
+    </div>
+    <input type="hidden" id="expenseEditId" />
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="i18n.js"></script>
+<script src="trips.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
