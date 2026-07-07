@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kharcha-hisab-v6';
+const CACHE_NAME = 'kharcha-hisab-v7';
 const APP_SHELL = [
   './',
   './index.html',
@@ -39,42 +39,50 @@ self.addEventListener('activate', (event)=>{
 });
 
 self.addEventListener('fetch', (event)=>{
-  const url = event.request.url;
-  
+  const request = event.request;
+  const url = request.url;
+
+  if(request.method !== 'GET') return;
+  const cachePromise = caches.open(CACHE_NAME);
+
   // External APIs - network first with cache fallback
   if(url.includes('firebaseio.com') || url.includes('googleapis.com') || url.includes('gstatic.com')){
     event.respondWith(
-      fetch(event.request)
+      fetch(request)
         .then(response => {
           if(response && response.status === 200 && response.type !== 'error'){
-            const cache = caches.open(CACHE_NAME);
-            cache.then(c => c.put(event.request, response.clone()));
+            const responseClone = response.clone();
+            cachePromise.then(c => c.put(request, responseClone)).catch(err => {
+              console.warn('Cache put failed:', err);
+            });
             return response;
           }
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(request))
     );
     return;
   }
 
   // App shell - cache first, then network
   event.respondWith(
-    caches.match(event.request)
+    caches.match(request)
       .then(cached => {
         if(cached) return cached;
-        return fetch(event.request)
+        return fetch(request)
           .then(response => {
             if(!response || response.status !== 200 || response.type === 'error'){
               return response;
             }
-            const cache = caches.open(CACHE_NAME);
-            cache.then(c => c.put(event.request, response.clone()));
+            const responseClone = response.clone();
+            cachePromise.then(c => c.put(request, responseClone)).catch(err => {
+              console.warn('Cache put failed:', err);
+            });
             return response;
           })
           .catch(() => {
             // Offline fallback
-            if(event.request.mode === 'navigate'){
+            if(request.mode === 'navigate'){
               return caches.match('./index.html');
             }
             return new Response('Offline - resource not available', {status: 503});

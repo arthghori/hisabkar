@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#ffffff" />
+<meta name="theme-color" content="#0b8457" />
+<meta name="application-name" content="ખર્ચા હિસાબ" />
+<meta name="mobile-web-app-capable" content="yes" />
 <title>ખર્ચા હિસાબ</title>
 <meta name="description" content="સભ્યો વચ્ચે ખર્ચાનો હિસાબ - કોણે કોને કેટલા પૈસા આપવાના છે" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="white" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="ખર્ચા" />
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23ffffff' width='180' height='180'/><circle cx='90' cy='90' r='75' fill='%230b8457'/><text x='90' y='115' font-size='90' font-weight='bold' fill='%23ffffff' text-anchor='middle' font-family='sans-serif'>₹</text></svg>" />
 <link rel="manifest" href="manifest.json" />
@@ -92,6 +94,23 @@
     </button>
   </header>
 
+  <div class="pwa-install-card" data-pwa-install-card>
+    <div class="pwa-install-content">
+      <div>
+        <h3>એપ ઇન્સ્ટોલ કરો</h3>
+        <p>આપણે આ એપને native app તરીકે વાપરી શકાય અને ઑફલાઇન પણ કામ કરી શકે.</p>
+      </div>
+      <div class="pwa-install-actions">
+        <button class="btn-primary" data-pwa-install-cta>હવે ઇન્સ્ટોલ કરો</button>
+        <button class="btn-ghost" data-pwa-install-help>કઈ રીતે?</button>
+      </div>
+    </div>
+    <div class="pwa-install-help" data-pwa-install-helpbox style="display:none;">
+      <p>Android પર: બ્રાઉઝર મેનૂમાં “Install app” / “એપ ઇન્સ્ટોલ કરો” પસંદ કરો.</p>
+      <p>iPhone અને iPad માટે: Share > Add to Home Screen પસંદ કરો.</p>
+    </div>
+  </div>
+
   <main class="screens">
     <div class="join-trip-box">
       <label class="field" style="margin-bottom:8px;">
@@ -140,6 +159,23 @@
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     </button>
   </header>
+
+  <div class="pwa-install-card" data-pwa-install-card>
+    <div class="pwa-install-content">
+      <div>
+        <h3>એપ ઇન્સ્ટોલ કરો</h3>
+        <p>આપણે આ એપને native app તરીકે વાપરી શકાય અને ઑફલાઇન પણ કામ કરી શકે.</p>
+      </div>
+      <div class="pwa-install-actions">
+        <button class="btn-primary" data-pwa-install-cta>હવે ઇન્સ્ટોલ કરો</button>
+        <button class="btn-ghost" data-pwa-install-help>કઈ રીતે?</button>
+      </div>
+    </div>
+    <div class="pwa-install-help" data-pwa-install-helpbox style="display:none;">
+      <p>Android પર: બ્રાઉઝર મેનૂમાં “Install app” / “એપ ઇન્સ્ટોલ કરો” પસંદ કરો.</p>
+      <p>iPhone અને iPad માટે: Share > Add to Home Screen પસંદ કરો.</p>
+    </div>
+  </div>
 
   <main class="screens">
 

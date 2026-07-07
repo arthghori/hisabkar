@@ -437,43 +437,87 @@ if('serviceWorker' in navigator){
 }
 
 // ---------------- PWA: install prompt ----------------
-let deferredPrompt;
+let deferredPrompt = null;
 const pwaInstallBtn = document.getElementById('pwaInstallBtn');
 const pwaInstallBtn2 = document.getElementById('pwaInstallBtn2');
+const installCards = Array.from(document.querySelectorAll('[data-pwa-install-card]'));
+const installCtaButtons = Array.from(document.querySelectorAll('[data-pwa-install-cta]'));
+const installHelpButtons = Array.from(document.querySelectorAll('[data-pwa-install-help]'));
+const installHelpBoxes = Array.from(document.querySelectorAll('[data-pwa-install-helpbox]'));
+
+function isStandaloneMode(){
+  return window.matchMedia('(display-mode: standalone)').matches
+    || window.matchMedia('(display-mode: fullscreen)').matches
+    || window.navigator.standalone === true;
+}
+
+function isIOSDevice(){
+  return /iPhone|iPad|iPod/.test(navigator.userAgent);
+}
+
+function updateInstallUi(){
+  const canPrompt = Boolean(deferredPrompt);
+  const standalone = isStandaloneMode();
+  installCards.forEach(card => {
+    card.style.display = standalone ? 'none' : 'block';
+  });
+  if(pwaInstallBtn) pwaInstallBtn.style.display = canPrompt && !standalone ? 'flex' : 'none';
+  if(pwaInstallBtn2) pwaInstallBtn2.style.display = canPrompt && !standalone ? 'flex' : 'none';
+  installCtaButtons.forEach(btn => {
+    btn.style.display = canPrompt && !standalone ? 'inline-flex' : 'none';
+  });
+  installHelpButtons.forEach(btn => {
+    btn.style.display = !standalone ? 'inline-flex' : 'none';
+  });
+}
+
+async function triggerInstallFlow(){
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if(outcome === 'accepted') showToast('એપ ઇન્સ્ટોલ شدી');
+    else showToast('ઇન્સ્ટોલ રદ થયું');
+    deferredPrompt = null;
+    updateInstallUi();
+    return;
+  }
+
+  if(isIOSDevice()){
+    showToast('Share > Add to Home Screen પસંદ કરો');
+  } else {
+    showToast('બ્રાઉઝર મેનૂમાંથી આ એપ ઇન્સ્ટોલ કરો');
+  }
+}
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  if(pwaInstallBtn) pwaInstallBtn.style.display = 'flex';
-  if(pwaInstallBtn2) pwaInstallBtn2.style.display = 'flex';
+  updateInstallUi();
 });
 
 if(pwaInstallBtn){
-  pwaInstallBtn.addEventListener('click', async () => {
-    if(!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response: ${outcome}`);
-    deferredPrompt = null;
-    pwaInstallBtn.style.display = 'none';
-    if(pwaInstallBtn2) pwaInstallBtn2.style.display = 'none';
-  });
+  pwaInstallBtn.addEventListener('click', triggerInstallFlow);
 }
 
 if(pwaInstallBtn2){
-  pwaInstallBtn2.addEventListener('click', async () => {
-    if(!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response: ${outcome}`);
-    deferredPrompt = null;
-    pwaInstallBtn.style.display = 'none';
-    if(pwaInstallBtn2) pwaInstallBtn2.style.display = 'none';
-  });
+  pwaInstallBtn2.addEventListener('click', triggerInstallFlow);
 }
+
+installCtaButtons.forEach(btn => {
+  btn.addEventListener('click', triggerInstallFlow);
+});
+
+installHelpButtons.forEach((btn, index) => {
+  btn.addEventListener('click', () => {
+    const box = installHelpBoxes[index];
+    if(box) box.style.display = box.style.display === 'block' ? 'none' : 'block';
+  });
+});
 
 window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
-  if(pwaInstallBtn) pwaInstallBtn.style.display = 'none';
-  if(pwaInstallBtn2) pwaInstallBtn2.style.display = 'none';
+  updateInstallUi();
+  showToast('એપ ઇન્સ્ટોલ شدી');
 });
+
+window.addEventListener('load', updateInstallUi);

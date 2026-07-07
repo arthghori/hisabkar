@@ -151,6 +151,53 @@ button, input, select{ font-family: inherit; }
   display:flex; align-items:center; justify-content:center;
 }
 .icon-btn:active{ background: var(--surface-2); }
+.pwa-install-card{
+  margin: 12px 16px 0;
+  background: linear-gradient(135deg, var(--brand-tint), #f4fbf7);
+  border: 1px solid rgba(11, 132, 87, 0.18);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.pwa-install-content{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.pwa-install-content h3{
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--brand-dark);
+  margin-bottom: 4px;
+}
+.pwa-install-content p{
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+.pwa-install-actions{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  flex-shrink:0;
+}
+.pwa-install-actions .btn-primary,
+.pwa-install-actions .btn-ghost{
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.pwa-install-help{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(11, 132, 87, 0.24);
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.pwa-install-help p{ margin: 4px 0; }
 .trip-delete{
   background: var(--owe-tint);
   color: var(--owe);
