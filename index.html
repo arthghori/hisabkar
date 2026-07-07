@@ -55,7 +55,7 @@
     <div id="registerForm" class="auth-form" style="display:none;">
       <label class="field">
         <span data-i18n="nameFieldLabel">નામ</span>
-        <input type="text" id="regName" placeholder="દા.ત. અર્થ" />
+        <input type="text" id="regName" data-i18n-placeholder="namePlaceholder" />
       </label>
       <label class="field">
         <span data-i18n="mobileFieldLabel">મોબાઈલ નંબર</span>
@@ -97,7 +97,7 @@
       <label class="field" style="margin-bottom:8px;">
         <span data-i18n="joinTripLabel">કોડ થી ટ્રિપમાં જોડાઓ</span>
         <div class="join-row">
-          <input type="text" id="joinTripCode" data-i18n-placeholder="joinTripPlaceholder" placeholder="6 અક્ષરનો કોડ નાખો" maxlength="6" style="text-transform:uppercase;" />
+          <input type="text" id="joinTripCode" data-i18n-placeholder="joinTripPlaceholder" maxlength="6" style="text-transform:uppercase;" />
           <button class="btn-primary join-btn" id="joinTripBtn" data-i18n="joinTripBtnLabel">જોડાઓ</button>
         </div>
       </label>
@@ -226,7 +226,7 @@
     <h3 data-i18n="tripModalTitleNew">નવી ટ્રિપ ઉમેરો</h3>
     <label class="field">
       <span data-i18n="tripNameLabel">ટ્રિપનું નામ</span>
-      <input type="text" id="tripName" data-i18n-placeholder="tripNamePlaceholder" placeholder="દા.ત. ગોવા ટ્રિપ" />
+      <input type="text" id="tripName" data-i18n-placeholder="tripNamePlaceholder" />
     </label>
     <label class="field">
       <span data-i18n="tripDateLabel">શરૂઆતની તારીખ</span>
@@ -247,7 +247,7 @@
     <h3 id="memberModalTitle" data-i18n="memberModalTitleNew">નવો સભ્ય ઉમેરો</h3>
     <label class="field">
       <span data-i18n="nameLabel">નામ</span>
-      <input type="text" id="memberName" data-i18n-placeholder="namePlaceholder" placeholder="દા.ત. નિશિત" />
+      <input type="text" id="memberName" data-i18n-placeholder="namePlaceholder" />
     </label>
     <label class="field">
       <span data-i18n="countLabel">કેટલા લોકો (સભ્ય પોતે સહિત)</span>
@@ -285,7 +285,7 @@
     </label>
     <label class="field">
       <span data-i18n="noteLabel">નોંધ (વૈકલ્પિક)</span>
-      <input type="text" id="expenseNote" data-i18n-placeholder="notePlaceholder" placeholder="દા.ત. જમવાનું" />
+      <input type="text" id="expenseNote" data-i18n-placeholder="notePlaceholder" />
     </label>
     <div class="modal-actions">
       <button class="btn-secondary" id="expenseDeleteBtn" data-i18n="deleteBtn" style="display:none;">ડિલીટ કરો</button>
