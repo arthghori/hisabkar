@@ -29,6 +29,31 @@ function showToast(msg){
   showToast._tm = setTimeout(()=> t.classList.remove('show'), 2200);
 }
 
+function updateAvgPerPerson(totalOverride){
+  const total = typeof totalOverride === 'number'
+    ? totalOverride
+    : Object.values(expenses).reduce((s, e) => s + Number(e.amount || 0), 0);
+  const totalPeople = Object.values(members).reduce((s, m) => s + Number(m.count || 0), 0);
+  const el = document.getElementById('avgPerPerson');
+  if(el) el.textContent = totalPeople > 0 ? fmt(total / totalPeople) : fmt(0);
+}
+
+function shareSettlementOnWhatsApp(){
+  const balance = computeBalances();
+  const txns = simplifyDebts(balance);
+  let msg = `*${t('shareSettlementTitle')}*\n\n`;
+  if(txns.length === 0){
+    msg += t('allSettled');
+  } else {
+    txns.forEach(txn=>{
+      const fromName = members[txn.from] ? members[txn.from].name : '?';
+      const toName = members[txn.to] ? members[txn.to].name : '?';
+      msg += `${fromName} → ${toName}: ${fmt(txn.amount)}\n`;
+    });
+  }
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
@@ -136,6 +161,7 @@ function renderMembers(){
     const parts = ids.map(id => `${members[id].name} ${members[id].count}`);
     breakdownEl.textContent = parts.join(' • ');
   }
+  updateAvgPerPerson();
 
   if(ids.length === 0){
     wrap.innerHTML = `<p class="empty-hint">${t('noMembers')}</p>`;
@@ -163,11 +189,35 @@ function populateExpenseForm(){
   paidBySel.innerHTML = ids.map(id => `<option value="${id}">${members[id].name}</option>`).join('')
     || `<option value="">${t('memberSelectPlaceholder')}</option>`;
 
-  checkWrap.innerHTML = ids.map(id => `
+  if(ids.length === 0){
+    checkWrap.innerHTML = `<p class="empty-hint">${t('addMemberFirst')}</p>`;
+    return;
+  }
+
+  const rows = ids.map(id => `
     <label class="checkbox-row">
       <input type="checkbox" value="${id}" class="member-check" />
       <span>${members[id].name} (${members[id].count})</span>
-    </label>`).join('') || `<p class="empty-hint">${t('addMemberFirst')}</p>`;
+    </label>`).join('');
+
+  checkWrap.innerHTML = `
+    <label class="checkbox-row select-all-row">
+      <input type="checkbox" id="selectAllMembers" />
+      <span>${t('selectAllLabel')}</span>
+    </label>
+    ${rows}`;
+
+  const selectAllBox = document.getElementById('selectAllMembers');
+  const memberBoxes = () => Array.from(document.querySelectorAll('.member-check'));
+
+  selectAllBox.addEventListener('change', ()=>{
+    memberBoxes().forEach(cb => cb.checked = selectAllBox.checked);
+  });
+  memberBoxes().forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      selectAllBox.checked = memberBoxes().every(box => box.checked);
+    });
+  });
 }
 
 function openExpenseModal(id){
@@ -186,9 +236,12 @@ function openExpenseModal(id){
     document.getElementById('expensePaidBy').value = e.paidBy;
     document.getElementById('expenseDate').value = e.date;
     document.getElementById('expenseNote').value = e.note || '';
-    document.querySelectorAll('.member-check').forEach(cb=>{
+    const boxes = document.querySelectorAll('.member-check');
+    boxes.forEach(cb=>{
       cb.checked = e.includedMembers.includes(cb.value);
     });
+    const selectAllBox = document.getElementById('selectAllMembers');
+    if(selectAllBox) selectAllBox.checked = Array.from(boxes).every(cb => cb.checked);
   } else {
     document.getElementById('expenseAmount').value = '';
     document.getElementById('expenseDate').value = new Date().toISOString().slice(0,10);
@@ -236,6 +289,7 @@ function renderExpenses(){
   let total = 0;
   Object.values(expenses).forEach(e => total += Number(e.amount));
   document.getElementById('totalExpense').textContent = fmt(total);
+  updateAvgPerPerson(total);
 
   if(ids.length === 0){
     wrap.innerHTML = `<p class="empty-hint">${t('noExpensesShort')}</p>`;
@@ -371,6 +425,9 @@ function renderSettlement(){
       </div>`;
   }).join('');
 }
+
+const shareSettlementBtn = document.getElementById('shareSettlementBtn');
+if(shareSettlementBtn) shareSettlementBtn.addEventListener('click', shareSettlementOnWhatsApp);
 
 // ---------------- PWA: service worker ----------------
 if('serviceWorker' in navigator){

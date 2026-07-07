@@ -391,8 +391,79 @@ button, input, select{ font-family: inherit; }
 }
 .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
 
+/* ===== Auth screen ===== */
+.auth-tabs{
+  display:flex;
+  gap:6px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 5px;
+  margin-bottom: 20px;
+}
+.auth-tab{
+  flex:1;
+  border:none;
+  background:none;
+  padding: 11px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight:700;
+  color: var(--ink-soft);
+}
+.auth-tab.active{
+  background: var(--brand);
+  color:#fff;
+}
+.auth-form{
+  display:flex;
+  flex-direction:column;
+}
+.auth-form .btn-primary{ margin-top: 6px; min-height: 50px; }
+
+/* ===== Join trip box ===== */
+.join-trip-box{
+  background: var(--brand-tint);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 6px;
+}
+.join-row{ display:flex; gap:8px; }
+.join-row input{ flex:1; text-transform:uppercase; }
+.join-btn{ flex:0 0 auto; min-height:0; padding: 0 18px; }
+
+/* ===== Select all row ===== */
+.select-all-row{
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 10px !important;
+  margin-bottom: 4px;
+  font-weight:700;
+}
+
+/* ===== WhatsApp share button ===== */
+.btn-share-whatsapp{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  background: #25D366;
+  color:#fff;
+  border:none;
+  border-radius: var(--radius-sm);
+  min-height: 46px;
+  font-size: 13.5px;
+  font-weight:700;
+  margin-top: 10px;
+}
+.btn-share-whatsapp:active{ background: #1ebe5a; }
+
 /* ===== Small screens tightening ===== */
 @media (max-width: 360px){
   .brand-text h1{ font-size: 16.5px; }
   .summary-value{ font-size: 18px; }
+  .topbar{ gap:6px; padding-left:14px; padding-right:14px; }
+  .icon-btn{ width:36px; height:36px; }
+  .lang-toggle{ padding:2px; }
+  .lang-opt{ padding:5px 8px; font-size:11px; }
+  .brand-mark{ width:36px; height:36px; font-size:17px; }
 }

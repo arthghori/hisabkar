@@ -1,10 +1,11 @@
-const CACHE_NAME = 'kharcha-hisab-v4';
+const CACHE_NAME = 'kharcha-hisab-v6';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './i18n.js',
+  './auth.js',
   './trips.js',
   './firebase-config.js',
   './manifest.json'

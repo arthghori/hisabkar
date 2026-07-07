@@ -1,30 +1,44 @@
 // ============================================================
-// trips.js - Trip picker + trip-scoped data refs
+// trips.js - Trip picker + user-scoped trip access + sharing
 // Data model:
-//   /trips/{tripId} -> { name, startDate, createdAt }
-//   /trips/{tripId}/members/{id}  -> { name, count }
+//   /trips/{tripId} -> { name, startDate, createdAt, ownerMobile, code }
+//   /trips/{tripId}/participants/{mobile} -> { name, joinedAt }
+//   /trips/{tripId}/members/{id}  -> { name, count }   (expense-split groups)
 //   /trips/{tripId}/expenses/{id} -> { amount, paidBy, includedMembers, date, note }
+//   /userTrips/{mobile}/{tripId} -> true   (index: which trips a user can access)
+//   /tripCodes/{code} -> tripId            (index: join by share code)
 // ============================================================
 
-let trips = {};
+let trips = {};          // tripId -> trip meta (name, startDate, code, ownerMobile...)
+let userTripIds = [];    // tripIds current user has access to
 let currentTripId = localStorage.getItem('kh_current_trip') || null;
+let userTripsListenerRef = null;
 
 function membersRef(){ return db.ref('trips/' + currentTripId + '/members'); }
 function expensesRef(){ return db.ref('trips/' + currentTripId + '/expenses'); }
+
+function genTripCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for(let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
 
 // ---------------- Screen switching ----------------
 function showTripPicker(){
   currentTripId = null;
   localStorage.removeItem('kh_current_trip');
+  document.getElementById('authRoot').style.display = 'none';
   document.getElementById('mainAppRoot').style.display = 'none';
   document.getElementById('tripPickerRoot').style.display = 'flex';
-  // Detach trip-scoped listeners so stale data doesn't leak into the next trip
   if(typeof detachTripListeners === 'function') detachTripListeners();
+  loadUserTrips();
 }
 
 function showMainApp(tripId){
   currentTripId = tripId;
   localStorage.setItem('kh_current_trip', tripId);
+  document.getElementById('authRoot').style.display = 'none';
   document.getElementById('tripPickerRoot').style.display = 'none';
   document.getElementById('mainAppRoot').style.display = 'flex';
   document.getElementById('currentTripName').textContent = trips[tripId] ? trips[tripId].name : t('appTitle');
@@ -33,16 +47,40 @@ function showMainApp(tripId){
 
 document.getElementById('backToTrips').addEventListener('click', showTripPicker);
 
-// ---------------- Trip CRUD ----------------
-db.ref('trips').on('value', snap=>{
-  trips = snap.val() || {};
-  renderTripList();
-  // keep main app title in sync if currently open
-  if(currentTripId && trips[currentTripId]){
-    document.getElementById('currentTripName').textContent = trips[currentTripId].name;
-  }
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  if(confirm(t('confirmLogout'))) logout();
 });
 
+// ---------------- Load trips the current user can access ----------------
+function loadUserTrips(){
+  if(!currentUser) return;
+  if(userTripsListenerRef) userTripsListenerRef.off();
+  userTripsListenerRef = db.ref('userTrips/' + currentUser.mobile);
+  userTripsListenerRef.on('value', snap=>{
+    userTripIds = Object.keys(snap.val() || {});
+    fetchTripsMeta();
+  });
+}
+
+function fetchTripsMeta(){
+  if(userTripIds.length === 0){
+    trips = {};
+    renderTripList();
+    return;
+  }
+  Promise.all(userTripIds.map(id => db.ref('trips/' + id).once('value'))).then(snaps=>{
+    trips = {};
+    snaps.forEach((snap, idx)=>{
+      if(snap.exists()) trips[userTripIds[idx]] = snap.val();
+    });
+    renderTripList();
+    if(currentTripId && trips[currentTripId]){
+      document.getElementById('currentTripName').textContent = trips[currentTripId].name;
+    }
+  });
+}
+
+// ---------------- Add trip ----------------
 document.getElementById('fabTrip').addEventListener('click', ()=>{
   document.getElementById('tripEditId').value = '';
   document.getElementById('tripName').value = '';
@@ -55,22 +93,87 @@ document.getElementById('tripSaveBtn').addEventListener('click', ()=>{
   const startDate = document.getElementById('tripStartDate').value;
 
   if(!name){ showToast(t('toastTripNameNeeded')); return; }
+  if(!currentUser){ showToast(t('toastLoginFirst')); return; }
 
-  const data = { name, startDate, createdAt: Date.now() };
+  const code = genTripCode();
   const newRef = db.ref('trips').push();
-  newRef.set(data);
-  closeModal('tripModal');
-  showToast(t('toastTripAdded'));
+  const tripId = newRef.key;
+  const data = {
+    name, startDate,
+    createdAt: Date.now(),
+    ownerMobile: currentUser.mobile,
+    code
+  };
+  newRef.set(data).then(()=>{
+    db.ref('trips/' + tripId + '/participants/' + currentUser.mobile).set({ name: currentUser.name, joinedAt: Date.now() });
+    db.ref('userTrips/' + currentUser.mobile + '/' + tripId).set(true);
+    db.ref('tripCodes/' + code).set(tripId);
+    closeModal('tripModal');
+    showToast(t('toastTripAdded'));
+  });
 });
 
+// ---------------- Join trip via code ----------------
+document.getElementById('joinTripBtn').addEventListener('click', ()=>{
+  const code = document.getElementById('joinTripCode').value.trim().toUpperCase();
+  if(!code){ showToast(t('toastCodeNeeded')); return; }
+
+  db.ref('tripCodes/' + code).once('value').then(snap=>{
+    if(!snap.exists()){ showToast(t('toastCodeInvalid')); return; }
+    const tripId = snap.val();
+    db.ref('trips/' + tripId + '/participants/' + currentUser.mobile).set({ name: currentUser.name, joinedAt: Date.now() });
+    db.ref('userTrips/' + currentUser.mobile + '/' + tripId).set(true).then(()=>{
+      document.getElementById('joinTripCode').value = '';
+      showToast(t('toastJoinSuccess'));
+    });
+  });
+});
+
+// Auto-fill join code from a shared link: ?code=XXXXXX
+(function prefillCodeFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if(code){
+    setTimeout(()=>{
+      const input = document.getElementById('joinTripCode');
+      if(input) input.value = code.toUpperCase();
+    }, 300);
+  }
+})();
+
+// ---------------- Delete trip (owner only) ----------------
 function deleteTrip(id, ev){
   ev.stopPropagation();
+  const trip = trips[id];
+  if(!trip) return;
+  if(!currentUser || trip.ownerMobile !== currentUser.mobile){
+    showToast(t('toastOnlyOwnerDelete'));
+    return;
+  }
   if(confirm(t('confirmTripDelete'))){
-    db.ref('trips/' + id).remove();
-    showToast(t('toastTripDeleted'));
+    db.ref('trips/' + id + '/participants').once('value').then(snap=>{
+      const participants = snap.val() || {};
+      Object.keys(participants).forEach(mobile=>{
+        db.ref('userTrips/' + mobile + '/' + id).remove();
+      });
+      if(trip.code) db.ref('tripCodes/' + trip.code).remove();
+      db.ref('trips/' + id).remove();
+      showToast(t('toastTripDeleted'));
+    });
   }
 }
 
+// ---------------- Share trip via WhatsApp ----------------
+function shareTripLink(){
+  if(!currentTripId || !trips[currentTripId]) return;
+  const trip = trips[currentTripId];
+  const link = window.location.origin + window.location.pathname + '?code=' + trip.code;
+  const msg = `${t('shareTripMsgPrefix')} "${trip.name}"\n${t('shareTripCodeLabel')}: ${trip.code}\n${link}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+document.getElementById('shareTripBtn').addEventListener('click', shareTripLink);
+
+// ---------------- Render trip list ----------------
 function renderTripList(){
   const wrap = document.getElementById('tripsList');
   const ids = Object.keys(trips).sort((a,b)=> (trips[b].createdAt||0) - (trips[a].createdAt||0));
@@ -81,24 +184,27 @@ function renderTripList(){
   }
   wrap.innerHTML = ids.map(id=>{
     const trip = trips[id];
+    const isOwner = currentUser && trip.ownerMobile === currentUser.mobile;
     return `
       <div class="item-card" onclick="showMainApp('${id}')">
         <div class="item-avatar" style="background:${colorFor(id)}">${trip.name.charAt(0)}</div>
         <div class="item-body">
           <div class="item-title">${trip.name}</div>
-          <div class="item-sub">${trip.startDate || ''}</div>
+          <div class="item-sub">${trip.startDate || ''} • ${t('codeLabel')}: ${trip.code || ''}</div>
         </div>
+        ${isOwner ? `
         <button class="icon-btn trip-delete" onclick="deleteTrip('${id}', event)" aria-label="Delete trip">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>
-        </button>
+        </button>` : ''}
       </div>`;
   }).join('');
 }
 
-// ---------------- Boot ----------------
-document.addEventListener('DOMContentLoaded', ()=>{
+// ---------------- Boot (called by auth.js only after session is verified) ----------------
+function bootTripFlow(){
+  document.getElementById('authRoot').style.display = 'none';
+
   if(currentTripId){
-    // will show once trips data confirms it still exists; fallback to picker if not found after a short wait
     document.getElementById('mainAppRoot').style.display = 'flex';
     document.getElementById('tripPickerRoot').style.display = 'none';
     document.getElementById('currentTripName').textContent = t('appTitle');
@@ -107,8 +213,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(!snap.exists()) showTripPicker();
       else document.getElementById('currentTripName').textContent = snap.val().name;
     });
+    loadUserTrips();
   } else {
     document.getElementById('tripPickerRoot').style.display = 'flex';
     document.getElementById('mainAppRoot').style.display = 'none';
+    loadUserTrips();
   }
-});
+}
