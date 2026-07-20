@@ -262,28 +262,35 @@
     <!-- EXPENSES -->
     <section id="screen-expenses" class="screen">
       <h2 class="section-title" data-i18n="allExpensesTitle">બધા ખર્ચ</h2>
-      <div class="filter-row" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-        <label class="field" style="margin:0;">
-          <span style="font-size:0.85rem;color:var(--ink-soft);">From</span>
-          <input type="date" id="expenseFilterFrom" />
-        </label>
-        <label class="field" style="margin:0;">
-          <span style="font-size:0.85rem;color:var(--ink-soft);">To</span>
-          <input type="date" id="expenseFilterTo" />
-        </label>
-        <button class="btn-ghost" id="expenseFilterClear" style="height:36px;">Clear</button>
+
+      <div class="filter-card">
+        <div class="filter-dates">
+          <label class="field" style="margin:0;">
+            <span>From</span>
+            <input type="date" id="expenseFilterFrom" />
+          </label>
+          <label class="field" style="margin:0;">
+            <span>To</span>
+            <input type="date" id="expenseFilterTo" />
+          </label>
+        </div>
+        <button class="btn-ghost filter-clear-btn" id="expenseFilterClear">Clear</button>
       </div>
-      <div class="export-row" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-        <label class="field" style="margin:0;">
-          <span style="font-size:0.85rem;color:var(--ink-soft);">Export</span>
+
+      <div class="export-card">
+        <label class="field export-format-field" style="margin:0;">
+          <span>Export</span>
           <select id="expenseExportFormat">
             <option value="csv">CSV</option>
             <option value="txt">TXT</option>
           </select>
         </label>
-        <button class="btn-ghost" id="expenseExportBtn">Download</button>
-        <button class="btn-ghost" id="expenseShareWhatsApp">Share on WhatsApp</button>
+        <div class="export-actions">
+          <button class="btn-ghost" id="expenseExportBtn">Download</button>
+          <button class="btn-ghost" id="expenseShareWhatsApp">Share on WhatsApp</button>
+        </div>
       </div>
+
       <div id="expensesList" class="card-list">
         <p class="empty-hint" data-i18n="noExpensesShort">હજુ કોઈ ખર્ચ ઉમેર્યો નથી</p>
       </div>
@@ -323,8 +330,9 @@
       <span>Notes</span>
     </button>
   </nav>
-
 </div>
+
+<footer class="app-credit">@made and design by <span>arth ghori</span></footer>
 
 <!-- MODAL: Add / Edit Trip -->
 <div id="tripModal" class="modal-overlay">
@@ -437,10 +445,6 @@
 </div>
 
 <div id="toast" class="toast"></div>
-
-<footer style="text-align:center;padding:14px 8px;color:var(--ink-soft,#666);font-size:0.9rem;">
-  <div>@made and design by arth ghori</div>
-</footer>
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>

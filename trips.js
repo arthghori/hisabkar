@@ -56,23 +56,25 @@ function showMainApp(tripId){
 
 document.getElementById('backToTrips').addEventListener('click', showTripPicker);
 
-// Leave trip (remove access for current user only)
-document.getElementById('leaveTripBtn').addEventListener('click', ()=>{
-  if(!currentTripId || !currentUser) return;
-  const trip = trips[currentTripId];
+// Leave trip (remove access for current user only, on this account —
+// does not touch the trip's data or other participants' access)
+function leaveTrip(id, ev){
+  if(ev) ev.stopPropagation();
+  if(!id || !currentUser) return;
+  const trip = trips[id];
   if(trip && trip.ownerMobile === currentUser.mobile){
     showToast(t('toastOwnerCannotLeave') || 'Owner cannot leave the trip — use delete');
     return;
   }
-  if(confirm('શું તમે આ ટ્રિપ છોડી દઇશું? આ ડિવાઇસ/એકાઉન્ટ થી ટ્રિપ દૂર થઈ જશે')){
-    // remove from userTrips and participants
-    db.ref('userTrips/' + currentUser.mobile + '/' + currentTripId).remove();
-    db.ref('trips/' + currentTripId + '/participants/' + currentUser.mobile).remove();
-    // go back to trip picker
-    showTripPicker();
+  if(confirm(t('confirmLeaveTrip') || 'શું તમે આ ટ્રિપ છોડી દઇશું? આ ડિવાઇસ/એકાઉન્ટ થી ટ્રિપ દૂર થઈ જશે')){
+    db.ref('userTrips/' + currentUser.mobile + '/' + id).remove();
+    db.ref('trips/' + id + '/participants/' + currentUser.mobile).remove();
+    if(currentTripId === id) showTripPicker();
     showToast(t('toastLeftTrip') || 'You left the trip');
   }
-});
+}
+
+document.getElementById('leaveTripBtn').addEventListener('click', ()=> leaveTrip(currentTripId));
 
 document.getElementById('logoutBtn').addEventListener('click', ()=>{
   if(confirm(t('confirmLogout'))) logout();
@@ -224,7 +226,10 @@ function renderTripList(){
         ${isOwner ? `
         <button class="icon-btn trip-delete" onclick="deleteTrip('${id}', event)" aria-label="Delete trip">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>
-        </button>` : ''}
+        </button>` : `
+        <button class="icon-btn trip-leave" onclick="leaveTrip('${id}', event)" aria-label="Leave trip" title="Leave trip (this device only)">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>`}
       </div>`;
   }).join('');
 }
