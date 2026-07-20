@@ -7,14 +7,91 @@
 
 let members = {};   // id -> {name, count}
 let expenses = {};  // id -> {amount, paidBy, includedMembers, date, note}
+let notes = {};     // id -> { title, content, createdAt }
 
 const AVATAR_COLORS = ['#0b8457','#2563eb','#c0392b','#9333ea','#d97706','#0891b2'];
+
+function applyTheme(theme){
+  const resolved = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', resolved);
+  document.documentElement.style.colorScheme = resolved;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta){ meta.setAttribute('content', resolved === 'dark' ? '#0a1c14' : '#0b8457'); }
+  localStorage.setItem('kharcha-theme', resolved);
+  document.querySelectorAll('.theme-toggle').forEach(btn => {
+    btn.setAttribute('aria-pressed', resolved === 'dark' ? 'true' : 'false');
+    btn.title = resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  });
+}
+
+function initTheme(){
+  const saved = localStorage.getItem('kharcha-theme');
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+}
+
+document.querySelectorAll('.theme-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const nextTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    applyTheme(nextTheme);
+  });
+});
+
+initTheme();
+
+// ===== Cache management =====
+async function cleanupOldCaches(){
+  try{
+    const cacheNames = await caches.keys();
+    const oldCaches = cacheNames.filter(k => k.startsWith('kharcha-hisab-v') && !k.includes(new Date().toISOString().slice(0,10).replace(/-/g,'')));
+    if(oldCaches.length > 0){
+      console.log('[App] Cleaning old caches:', oldCaches);
+      await Promise.all(oldCaches.map(k => caches.delete(k)));
+    }
+  } catch(e){
+    console.warn('Cache cleanup failed:', e);
+  }
+}
+
+function clearAllCache(){
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage({type: 'CLEAR_CACHE'});
+  }
+  caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+  localStorage.clear();
+  showToast('Cache cleared. Refreshing...');
+  setTimeout(() => location.reload(), 500);
+}
+
+// Auto-cleanup on startup
+if(navigator.serviceWorker){
+  navigator.serviceWorker.ready.then(() => {
+    cleanupOldCaches();
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      console.log('[App] Service worker updated');
+    });
+  });
+}
 
 function colorFor(id){
   let h = 0;
   for(const c of id) h = (h*31 + c.charCodeAt(0)) % 1000;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
+
+// Attach expense filter controls to re-render on change
+(function attachExpenseFilters(){
+  const filterFrom = document.getElementById('expenseFilterFrom');
+  const filterTo = document.getElementById('expenseFilterTo');
+  const filterClear = document.getElementById('expenseFilterClear');
+  if(filterFrom) filterFrom.addEventListener('change', renderExpenses);
+  if(filterTo) filterTo.addEventListener('change', renderExpenses);
+  if(filterClear) filterClear.addEventListener('click', ()=>{
+    if(filterFrom) filterFrom.value = '';
+    if(filterTo) filterTo.value = '';
+    renderExpenses();
+  });
+})();
 
 function fmt(n){
   const v = Math.round(n * 100) / 100;
@@ -75,7 +152,8 @@ document.getElementById('fab').addEventListener('click', ()=>{
   if(active === 'members'){
     openMemberModal(null);
   } else {
-    openExpenseModal(null);
+    if(active === 'expenses') openExpenseModal(null);
+    else if(active === 'notes') openNoteModal(null);
   }
 });
 
@@ -84,14 +162,17 @@ function attachTripListeners(){
   if(!currentTripId) return;
   membersRef().on('value', membersListener);
   expensesRef().on('value', expensesListener);
+  if(typeof notesRef === 'function') notesRef().on('value', notesListener);
 }
 
 function detachTripListeners(){
   members = {};
   expenses = {};
+  notes = {};
   if(currentTripId){
     membersRef().off('value', membersListener);
     expensesRef().off('value', expensesListener);
+    if(typeof notesRef === 'function') notesRef().off('value', notesListener);
   }
 }
 
@@ -106,6 +187,74 @@ function expensesListener(snap){
   expenses = snap.val() || {};
   renderExpenses();
   renderSettlement();
+}
+
+function notesListener(snap){
+  notes = snap.val() || {};
+  renderNotes();
+}
+
+function openNoteModal(id){
+  document.getElementById('noteModalTitle').textContent = id ? 'Edit Note' : 'New Note';
+  document.getElementById('noteEditId').value = id || '';
+  document.getElementById('noteDeleteBtn').style.display = id ? 'block' : 'none';
+  if(id){
+    const n = notes[id] || {};
+    document.getElementById('noteTitle').value = n.title || '';
+    document.getElementById('noteContent').value = n.content || '';
+  } else {
+    document.getElementById('noteTitle').value = '';
+    document.getElementById('noteContent').value = '';
+  }
+  openModal('noteModal');
+}
+
+document.getElementById('noteSaveBtn').addEventListener('click', ()=>{
+  const title = document.getElementById('noteTitle').value.trim();
+  const content = document.getElementById('noteContent').value.trim();
+  const editId = document.getElementById('noteEditId').value;
+  if(!title && !content){ showToast('Write a title or content'); return; }
+  const data = { title, content };
+  if(editId){
+    notesRef().child(editId).update(data);
+    showToast('Note updated');
+  } else {
+    data.createdAt = firebase.database.ServerValue.TIMESTAMP;
+    notesRef().push(data);
+    showToast('Note added');
+  }
+  closeModal('noteModal');
+});
+
+document.getElementById('noteDeleteBtn').addEventListener('click', ()=>{
+  const editId = document.getElementById('noteEditId').value;
+  if(!editId) return;
+  if(confirm('Delete this note?')){
+    notesRef().child(editId).remove();
+    closeModal('noteModal');
+    showToast('Note deleted');
+  }
+});
+
+function renderNotes(){
+  const wrap = document.getElementById('notesList');
+  const ids = Object.keys(notes).sort((a,b)=> (notes[b].createdAt||0) - (notes[a].createdAt||0));
+  if(ids.length === 0){
+    wrap.innerHTML = `<p class="empty-hint">No notes yet</p>`;
+    return;
+  }
+  wrap.innerHTML = ids.map(id=>{
+    const n = notes[id];
+    const preview = (n.content || '').split('\n')[0];
+    return `
+      <div class="item-card" onclick="openNoteModal('${id}')">
+        <div class="item-avatar" style="background:${colorFor(id)}">${(n.title||'').charAt(0) || 'N'}</div>
+        <div class="item-body">
+          <div class="item-title">${n.title || 'Untitled'}</div>
+          <div class="item-sub">${preview}</div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // ---------------- Members ----------------
@@ -235,6 +384,10 @@ function openExpenseModal(id){
     document.getElementById('expenseAmount').value = e.amount;
     document.getElementById('expensePaidBy').value = e.paidBy;
     document.getElementById('expenseDate').value = e.date;
+    // payment method
+    const pm = e.paymentMethod || 'cash';
+    const pmEl = document.querySelectorAll('input[name="expensePayment"]');
+    pmEl.forEach(r => r.checked = (r.value === pm));
     document.getElementById('expenseNote').value = e.note || '';
     const boxes = document.querySelectorAll('.member-check');
     boxes.forEach(cb=>{
@@ -254,6 +407,8 @@ document.getElementById('expenseSaveBtn').addEventListener('click', ()=>{
   const amount = parseFloat(document.getElementById('expenseAmount').value);
   const paidBy = document.getElementById('expensePaidBy').value;
   const date = document.getElementById('expenseDate').value;
+  const paymentMethodEl = document.querySelector('input[name="expensePayment"]:checked');
+  const paymentMethod = paymentMethodEl ? paymentMethodEl.value : 'cash';
   const note = document.getElementById('expenseNote').value.trim();
   const included = Array.from(document.querySelectorAll('.member-check:checked')).map(cb=>cb.value);
   const editId = document.getElementById('expenseEditId').value;
@@ -262,11 +417,13 @@ document.getElementById('expenseSaveBtn').addEventListener('click', ()=>{
   if(!paidBy){ showToast(t('toastPaidByNeeded')); return; }
   if(included.length === 0){ showToast(t('toastMembersNeeded')); return; }
 
-  const data = { amount, paidBy, includedMembers: included, date, note };
+  const data = { amount, paidBy, includedMembers: included, date, note, paymentMethod };
   if(editId){
     expensesRef().child(editId).update(data);
     showToast(t('toastExpenseUpdated'));
   } else {
+    // stamp creation time so newest entries can be shown first reliably
+    data.createdAt = firebase.database.ServerValue.TIMESTAMP;
     expensesRef().push(data);
     showToast(t('toastExpenseAdded'));
   }
@@ -285,7 +442,28 @@ document.getElementById('expenseDeleteBtn').addEventListener('click', ()=>{
 
 function renderExpenses(){
   const wrap = document.getElementById('expensesList');
-  const ids = Object.keys(expenses).sort((a,b)=> (expenses[b].date||'').localeCompare(expenses[a].date||''));
+  // Apply date-range filter (YYYY-MM-DD) if set, then sort by createdAt (newest first),
+  // falling back to date string ordering when createdAt is not available.
+  let ids = Object.keys(expenses);
+  const from = (document.getElementById('expenseFilterFrom') || {value:''}).value;
+  const to = (document.getElementById('expenseFilterTo') || {value:''}).value;
+
+  ids = ids.filter(id => {
+    const e = expenses[id];
+    if(!e) return false;
+    if(from && (!e.date || e.date < from)) return false;
+    if(to && (!e.date || e.date > to)) return false;
+    return true;
+  });
+
+  ids.sort((a,b)=>{
+    const ea = expenses[a] || {};
+    const eb = expenses[b] || {};
+    const ca = Number(ea.createdAt) || 0;
+    const cb = Number(eb.createdAt) || 0;
+    if(cb !== ca) return cb - ca;
+    return (eb.date||'').localeCompare(ea.date||'');
+  });
   let total = 0;
   Object.values(expenses).forEach(e => total += Number(e.amount));
   document.getElementById('totalExpense').textContent = fmt(total);
@@ -295,8 +473,27 @@ function renderExpenses(){
     wrap.innerHTML = `<p class="empty-hint">${t('noExpensesShort')}</p>`;
     return;
   }
-  wrap.innerHTML = ids.map(id=>{
+
+  function niceDateLabel(yyyyMMdd){
+    if(!yyyyMMdd) return '';
+    const parts = yyyyMMdd.split('-');
+    if(parts.length !== 3) return yyyyMMdd;
+    const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    const today = new Date();
+    const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+    const today0 = new Date(y, m, d);
+    const diff = Math.round((dt - today0) / (24*60*60*1000));
+    if(diff === 0) return t('dateLabelToday') || 'Today';
+    if(diff === -1) return t('dateLabelYesterday') || 'Yesterday';
+    return dt.toLocaleDateString(CURRENT_LANG === 'gu' ? 'gu-IN' : 'en-IN', { year:'numeric', month:'short', day:'numeric' });
+  }
+
+  let lastDate = null;
+  const parts = [];
+  ids.forEach(id=>{
     const e = expenses[id];
+    // skip if filtered out earlier
+    if(!e) return;
     const payer = members[e.paidBy] ? members[e.paidBy].name : '?';
     const included = e.includedMembers.filter(mid => members[mid]);
     const totalIndividuals = included.reduce((sum, mid) => sum + Number(members[mid].count || 0), 0);
@@ -313,14 +510,20 @@ function renderExpenses(){
         </div>`;
     }).join('');
 
-    return `
+    // insert date separator when date changes
+    if(e.date && e.date !== lastDate){
+      parts.push(`<div class="date-sep">${niceDateLabel(e.date)}</div>`);
+      lastDate = e.date;
+    }
+
+    parts.push(`
       <div class="item-card expense-card">
         <div class="item-card-top" onclick="openExpenseModal('${id}')">
           <div class="item-avatar" style="background:${colorFor(e.paidBy||id)}">${payer.charAt(0)}</div>
-          <div class="item-body">
-            <div class="item-title">${e.note ? e.note : payer + ' ' + t('paidSuffix')}</div>
-            <div class="item-sub">${payer} ${t('paidWord')}${e.date ? ' • ' + e.date : ''}</div>
-          </div>
+                <div class="item-body">
+                  <div class="item-title">${e.note ? e.note : payer + ' ' + t('paidSuffix')}</div>
+                  <div class="item-sub">${payer} ${t('paidWord')}${e.date ? ' • ' + e.date : ''} ${e.paymentMethod ? ' • ' + (e.paymentMethod === 'cash' ? 'Cash' : 'Online') : ''}</div>
+                </div>
           <div class="item-trail">
             <div class="item-amount">${fmt(e.amount)}</div>
           </div>
@@ -329,9 +532,113 @@ function renderExpenses(){
           <div class="breakdown-head">${t('perPersonPrefix')} ${totalIndividuals} ${t('perPersonMiddle')} ${fmt(perPerson)}</div>
           ${breakdownRows}
         </div>
-      </div>`;
-  }).join('');
+      </div>`);
+  });
+
+  wrap.innerHTML = parts.join('');
 }
+
+// Export expenses (CSV / TXT) filtered by current From/To
+function gatherFilteredExpenses(){
+  const from = (document.getElementById('expenseFilterFrom') || {value:''}).value;
+  const to = (document.getElementById('expenseFilterTo') || {value:''}).value;
+  const ids = Object.keys(expenses).filter(id => {
+    const e = expenses[id];
+    if(!e) return false;
+    if(from && (!e.date || e.date < from)) return false;
+    if(to && (!e.date || e.date > to)) return false;
+    return true;
+  }).sort((a,b)=> (expenses[b].createdAt||0) - (expenses[a].createdAt||0));
+  return ids.map(id => ({ id, ...expenses[id] }));
+}
+
+function exportExpensesAsCSV(rows){
+  const header = ['id','date','amount','paidBy','paidByName','includedMembers','includedMemberNames','paymentMethod','note','createdAt'];
+
+  function csvEscape(v){
+    if(v === null || v === undefined) v = '';
+    v = String(v);
+    // Prevent Excel interpreting values as formulas (leading = + - @)
+    if(/^[=+\-@]/.test(v)) v = "'" + v;
+    // Escape double quotes
+    v = v.replace(/"/g, '""');
+    return '"' + v + '"';
+  }
+
+  const lines = [header.map(h => csvEscape(h)).join(',')];
+  rows.forEach(r=>{
+    const paidByName = members[r.paidBy] ? members[r.paidBy].name : '';
+    const includedNames = (r.includedMembers||[]).map(mid => members[mid] ? members[mid].name : mid).join('|');
+    const includedList = (r.includedMembers||[]).join('|');
+    const createdAtIso = r.createdAt ? new Date(Number(r.createdAt)).toISOString() : '';
+    const fields = [r.id, r.date || '', r.amount, r.paidBy || '', paidByName, includedList, includedNames, r.paymentMethod||'', r.note||'', createdAtIso];
+    const line = fields.map(f => csvEscape(f)).join(',');
+    lines.push(line);
+  });
+
+  // totals per member
+  const totals = {};
+  rows.forEach(r=>{
+    const included = (r.includedMembers||[]).filter(id=>members[id]);
+    const totalIndividuals = included.reduce((s, mid) => s + Number(members[mid].count || 0), 0);
+    const perPerson = totalIndividuals > 0 ? Number(r.amount) / totalIndividuals : 0;
+    included.forEach(mid=>{
+      totals[mid] = (totals[mid] || 0) + perPerson * Number(members[mid].count || 0);
+    });
+  });
+  lines.push('');
+  lines.push(csvEscape('Totals per member:'));
+  Object.keys(totals).forEach(mid=>{
+    lines.push([csvEscape(members[mid] ? members[mid].name : mid), csvEscape(totals[mid])].join(','));
+  });
+
+  return lines.join('\n');
+}
+
+function downloadFile(filename, content, mime){
+  // include UTF-8 BOM so Excel recognizes UTF-8 correctly
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 5000);
+}
+
+function handleExport(){
+  const format = (document.getElementById('expenseExportFormat') || {value:'csv'}).value;
+  const rows = gatherFilteredExpenses();
+  if(rows.length === 0){ showToast('No expenses to export'); return; }
+  const csv = exportExpensesAsCSV(rows);
+  const fname = 'expenses_' + (new Date().toISOString().slice(0,10)) + '.' + (format === 'csv' ? 'csv' : 'txt');
+  downloadFile(fname, csv, 'text/csv;charset=utf-8;');
+}
+
+function handleShareWhatsApp(){
+  const rows = gatherFilteredExpenses();
+  if(rows.length === 0){ showToast('No expenses to share'); return; }
+  const csv = exportExpensesAsCSV(rows);
+  // try to open WhatsApp with the text (note: limited length)
+  const maxLen = 3000;
+  const text = 'Expenses\n\n' + csv;
+  if(text.length < maxLen){
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  } else {
+    // fallback: download file and inform user to share manually
+    downloadFile('expenses.txt', csv, 'text/plain;charset=utf-8;');
+    showToast('File downloaded; share it manually via WhatsApp');
+  }
+}
+
+// wire export buttons
+const expBtn = document.getElementById('expenseExportBtn');
+if(expBtn) expBtn.addEventListener('click', handleExport);
+const expShareBtn = document.getElementById('expenseShareWhatsApp');
+if(expShareBtn) expShareBtn.addEventListener('click', handleShareWhatsApp);
 
 // ---------------- Settlement calculation ----------------
 function computeBalances(){
@@ -461,6 +768,13 @@ function updateInstallUi(){
   installCards.forEach(card => {
     card.style.display = standalone ? 'none' : 'block';
   });
+  // compact install banner(s)
+  const banners = Array.from(document.querySelectorAll('.install-banner'));
+  const dismissed = localStorage.getItem('kh_install_dismissed');
+  const today = new Date().toISOString().slice(0,10);
+  banners.forEach(b => {
+    b.style.display = (canPrompt && !standalone && dismissed !== today) ? 'flex' : 'none';
+  });
   if(pwaInstallBtn) pwaInstallBtn.style.display = canPrompt && !standalone ? 'flex' : 'none';
   if(pwaInstallBtn2) pwaInstallBtn2.style.display = canPrompt && !standalone ? 'flex' : 'none';
   installCtaButtons.forEach(btn => {
@@ -494,6 +808,14 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredPrompt = e;
   updateInstallUi();
 });
+
+// wire banner buttons (Install / Not now) for all banners
+Array.from(document.querySelectorAll('.installBannerBtn')).forEach(btn=> btn.addEventListener('click', ()=> triggerInstallFlow()));
+Array.from(document.querySelectorAll('.installBannerDismiss')).forEach(btn=> btn.addEventListener('click', ()=>{
+  const today = new Date().toISOString().slice(0,10);
+  localStorage.setItem('kh_install_dismissed', today);
+  updateInstallUi();
+}));
 
 if(pwaInstallBtn){
   pwaInstallBtn.addEventListener('click', triggerInstallFlow);

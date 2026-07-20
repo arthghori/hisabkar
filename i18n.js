@@ -70,6 +70,8 @@ const TRANSLATIONS = {
     toastTripAdded: "ટ્રિપ ઉમેરાઈ",
     toastTripDeleted: "ટ્રિપ ડિલીટ થઈ",
     confirmTripDelete: "આ ટ્રિપ ડિલીટ કરવી છે? બધો ડેટા કાયમ માટે જતો રહેશે.",
+    toastLeftTrip: "ટ્રિપ છોડાઈ ગઈ",
+    toastOwnerCannotLeave: "માલિક ટ્રિપ છોડીને જઈ શકતો નથી — ડિલીટ કરવા માટે ડિલીટ બટનનો ઉપયોગ કરો",
     loginTab: "લોગિન",
     registerTab: "રજિસ્ટર",
     nameFieldLabel: "નામ",
@@ -107,6 +109,10 @@ const TRANSLATIONS = {
     avgPerPersonLabel: "સરેરાશ (વ્યક્તિ દીઠ)",
     toastGenericError: "કંઈક ખોટું થયું, ફરી પ્રયત્ન કરો",
     toastTooManyAttempts: "ઘણા ખોટા પ્રયત્નો થયા, 30 સેકન્ડ પછી ફરી પ્રયત્ન કરો"
+    ,dateLabelToday: "આજે",
+    dateLabelYesterday: "ગઈકાલે",
+    inGroup: "ગ્રુપમાં",
+    entriesLabel: "એન્ટ્રી"
   },
   en: {
     appTitle: "Kharcha Hisab",
@@ -175,6 +181,8 @@ const TRANSLATIONS = {
     toastTripAdded: "Trip added",
     toastTripDeleted: "Trip deleted",
     confirmTripDelete: "Delete this trip? All its data will be permanently lost.",
+    toastLeftTrip: "You left the trip",
+    toastOwnerCannotLeave: "Owner cannot leave the trip — use delete",
     loginTab: "Login",
     registerTab: "Register",
     nameFieldLabel: "Name",
@@ -212,6 +220,10 @@ const TRANSLATIONS = {
     avgPerPersonLabel: "Average (per person)",
     toastGenericError: "Something went wrong, please try again",
     toastTooManyAttempts: "Too many failed attempts, try again in 30 seconds"
+    ,dateLabelToday: "Today",
+    dateLabelYesterday: "Yesterday",
+    inGroup: "In group",
+    entriesLabel: "entries"
   }
 };
 

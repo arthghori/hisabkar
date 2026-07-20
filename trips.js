@@ -16,6 +16,7 @@ let userTripsListenerRef = null;
 
 function membersRef(){ return db.ref('trips/' + currentTripId + '/members'); }
 function expensesRef(){ return db.ref('trips/' + currentTripId + '/expenses'); }
+function notesRef(){ return db.ref('trips/' + currentTripId + '/notes'); }
 
 function genTripCode(){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -33,6 +34,8 @@ function showTripPicker(){
   document.getElementById('tripPickerRoot').style.display = 'flex';
   if(typeof detachTripListeners === 'function') detachTripListeners();
   loadUserTrips();
+  const leaveBtn = document.getElementById('leaveTripBtn');
+  if(leaveBtn) leaveBtn.style.display = 'none';
 }
 
 function showMainApp(tripId){
@@ -42,10 +45,34 @@ function showMainApp(tripId){
   document.getElementById('tripPickerRoot').style.display = 'none';
   document.getElementById('mainAppRoot').style.display = 'flex';
   document.getElementById('currentTripName').textContent = trips[tripId] ? trips[tripId].name : t('appTitle');
+  document.getElementById('currentTripNote').textContent = trips[tripId] && trips[tripId].note ? trips[tripId].note : '';
   if(typeof attachTripListeners === 'function') attachTripListeners();
+  const leaveBtn = document.getElementById('leaveTripBtn');
+  if(leaveBtn){
+    if(currentUser && trips[tripId] && trips[tripId].ownerMobile !== currentUser.mobile) leaveBtn.style.display = 'inline-flex';
+    else leaveBtn.style.display = 'none';
+  }
 }
 
 document.getElementById('backToTrips').addEventListener('click', showTripPicker);
+
+// Leave trip (remove access for current user only)
+document.getElementById('leaveTripBtn').addEventListener('click', ()=>{
+  if(!currentTripId || !currentUser) return;
+  const trip = trips[currentTripId];
+  if(trip && trip.ownerMobile === currentUser.mobile){
+    showToast(t('toastOwnerCannotLeave') || 'Owner cannot leave the trip — use delete');
+    return;
+  }
+  if(confirm('શું તમે આ ટ્રિપ છોડી દઇશું? આ ડિવાઇસ/એકાઉન્ટ થી ટ્રિપ દૂર થઈ જશે')){
+    // remove from userTrips and participants
+    db.ref('userTrips/' + currentUser.mobile + '/' + currentTripId).remove();
+    db.ref('trips/' + currentTripId + '/participants/' + currentUser.mobile).remove();
+    // go back to trip picker
+    showTripPicker();
+    showToast(t('toastLeftTrip') || 'You left the trip');
+  }
+});
 
 document.getElementById('logoutBtn').addEventListener('click', ()=>{
   if(confirm(t('confirmLogout'))) logout();
@@ -91,6 +118,7 @@ document.getElementById('fabTrip').addEventListener('click', ()=>{
 document.getElementById('tripSaveBtn').addEventListener('click', ()=>{
   const name = document.getElementById('tripName').value.trim();
   const startDate = document.getElementById('tripStartDate').value;
+  const note = (document.getElementById('tripNote') || {value:''}).value.trim();
 
   if(!name){ showToast(t('toastTripNameNeeded')); return; }
   if(!currentUser){ showToast(t('toastLoginFirst')); return; }
@@ -104,6 +132,7 @@ document.getElementById('tripSaveBtn').addEventListener('click', ()=>{
     ownerMobile: currentUser.mobile,
     code
   };
+  if(note) data.note = note;
   newRef.set(data).then(()=>{
     db.ref('trips/' + tripId + '/participants/' + currentUser.mobile).set({ name: currentUser.name, joinedAt: Date.now() });
     db.ref('userTrips/' + currentUser.mobile + '/' + tripId).set(true);
@@ -190,7 +219,7 @@ function renderTripList(){
         <div class="item-avatar" style="background:${colorFor(id)}">${trip.name.charAt(0)}</div>
         <div class="item-body">
           <div class="item-title">${trip.name}</div>
-          <div class="item-sub">${trip.startDate || ''} • ${t('codeLabel')}: ${trip.code || ''}</div>
+          <div class="item-sub">${trip.startDate || ''} • ${t('codeLabel')}: ${trip.code || ''}${trip.note ? ' • ' + trip.note : ''}</div>
         </div>
         ${isOwner ? `
         <button class="icon-btn trip-delete" onclick="deleteTrip('${id}', event)" aria-label="Delete trip">
