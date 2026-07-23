@@ -165,7 +165,7 @@ button, input, select, textarea{ font-family: inherit; }
 
 .lang-toggle{
   flex-shrink:0;
-  display:flex;
+  display:grid;
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.16);
   border-radius: 999px;
@@ -217,7 +217,7 @@ button, input, select, textarea{ font-family: inherit; }
 }
 .icon-btn:hover{ background: rgba(255,255,255,0.15); }
 .icon-btn svg{ flex-shrink:0; }
-.theme-toggle .theme-icon{ position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; transition: opacity .2s ease, transform .2s ease; }
+.theme-toggle .theme-icon{ position:absolute; top: 9px; left: 10px; right:0; bottom:0; display:flex; align-items:center; justify-content:center; transition: opacity .2s ease, transform .2s ease; }
 .theme-toggle .theme-icon-dark{ opacity:0; transform: scale(.8) rotate(-20deg); }
 :root[data-theme="dark"] .theme-toggle .theme-icon-light{ opacity:0; transform: scale(.8) rotate(20deg); }
 :root[data-theme="dark"] .theme-toggle .theme-icon-dark{ opacity:1; transform: scale(1) rotate(0deg); }
@@ -659,7 +659,7 @@ button, input, select, textarea{ font-family: inherit; }
 .filter-clear-btn, .export-actions button{ width: 100%; min-height: 44px; }
 .export-actions{
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
 }
 .export-format-field select{

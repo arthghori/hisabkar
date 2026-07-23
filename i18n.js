@@ -166,7 +166,7 @@ const TRANSLATIONS = {
     paidByLabel: "Paid by",
     splitAmongLabel: "Split among",
     dateLabel: "Date",
-    noteLabel: "Note (optional)",
+    noteLabel: "Title",
     notePlaceholder: "e.g. Dinner",
     personWord: "people",
     paidWord: "paid",
@@ -269,7 +269,10 @@ const TRANSLATIONS = {
   }
 };
 
-let CURRENT_LANG = localStorage.getItem('kh_lang') || 'gu';
+let CURRENT_LANG = localStorage.getItem('kh_lang') || 'en';
+if (!localStorage.getItem('kh_lang')) {
+  localStorage.setItem('kh_lang', 'en');
+}
 
 function t(key){
   return (TRANSLATIONS[CURRENT_LANG] && TRANSLATIONS[CURRENT_LANG][key]) || key;
