@@ -113,7 +113,27 @@ const TRANSLATIONS = {
     ,dateLabelToday: "આજે",
     dateLabelYesterday: "ગઈકાલે",
     inGroup: "ગ્રુપમાં",
-    entriesLabel: "એન્ટ્રી"
+    entriesLabel: "એન્ટ્રી",
+    recordPaymentBtnLabel: "પેમેન્ટ રેકોર્ડ કરો",
+    paymentModalTitleNew: "પેમેન્ટ રેકોર્ડ કરો",
+    paymentModalTitleEdit: "પેમેન્ટની વિગત બદલો",
+    fromLabel: "કોણે ચૂકવ્યા (From)",
+    toLabel: "કોને ચૂકવ્યા (To)",
+    paidOnLabel: "તારીખ",
+    paymentHistoryTitle: "પેમેન્ટ હિસ્ટ્રી",
+    noPayments: "હજુ કોઈ પેમેન્ટ રેકોર્ડ થયું નથી",
+    toastPaymentAdded: "પેમેન્ટ રેકોર્ડ થયું",
+    toastPaymentUpdated: "પેમેન્ટ અપડેટ થયું",
+    toastPaymentDeleted: "પેમેન્ટ ડિલીટ થયું",
+    confirmPaymentDelete: "આ પેમેન્ટ ડિલીટ કરવું છે?",
+    toastFromToSame: "કૃપા કરી From અને To માટે અલગ અલગ સભ્ય પસંદ કરો",
+    markPaidBtn: "ચૂકવ્યું ✓",
+    confirmMarkPaid: "આ પતાવટ ચૂકવાઈ ગઈ છે તેમ નોંધ કરવી છે?",
+    memberEntriesLabel: "સભ્ય એન્ટ્રી",
+    perHeadHint: "કુલ ખર્ચ ÷ કુલ સભ્ય",
+    paymentMethodLabel: "ચૂકવણી",
+    paymentCashLabel: "રોકડ",
+    paymentOnlineLabel: "ઓનલાઇન"
   },
   en: {
     appTitle: "Kharcha Hisab",
@@ -225,7 +245,27 @@ const TRANSLATIONS = {
     ,dateLabelToday: "Today",
     dateLabelYesterday: "Yesterday",
     inGroup: "In group",
-    entriesLabel: "entries"
+    entriesLabel: "entries",
+    recordPaymentBtnLabel: "Record Payment",
+    paymentModalTitleNew: "Record Payment",
+    paymentModalTitleEdit: "Edit Payment",
+    fromLabel: "Paid by (From)",
+    toLabel: "Paid to (To)",
+    paidOnLabel: "Date",
+    paymentHistoryTitle: "Payment History",
+    noPayments: "No payments recorded yet",
+    toastPaymentAdded: "Payment recorded",
+    toastPaymentUpdated: "Payment updated",
+    toastPaymentDeleted: "Payment deleted",
+    confirmPaymentDelete: "Delete this payment?",
+    toastFromToSame: "Please choose different members for From and To",
+    markPaidBtn: "Paid ✓",
+    confirmMarkPaid: "Record this settlement as paid?",
+    memberEntriesLabel: "member entries",
+    perHeadHint: "Total expense ÷ total members",
+    paymentMethodLabel: "Payment",
+    paymentCashLabel: "Cash",
+    paymentOnlineLabel: "Online"
   }
 };
 
@@ -266,6 +306,8 @@ function setLanguage(lang){
   if(typeof renderExpenses === 'function') renderExpenses();
   if(typeof renderSettlement === 'function') renderSettlement();
   if(typeof populateExpenseForm === 'function') populateExpenseForm();
+  if(typeof renderPayments === 'function') renderPayments();
+  if(typeof populatePaymentForm === 'function') populatePaymentForm();
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{

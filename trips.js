@@ -5,6 +5,7 @@
 //   /trips/{tripId}/participants/{mobile} -> { name, joinedAt }
 //   /trips/{tripId}/members/{id}  -> { name, count }   (expense-split groups)
 //   /trips/{tripId}/expenses/{id} -> { amount, paidBy, includedMembers, date, note }
+//   /trips/{tripId}/payments/{id} -> { from, to, amount, date, note }  (settle-up records)
 //   /userTrips/{mobile}/{tripId} -> true   (index: which trips a user can access)
 //   /tripCodes/{code} -> tripId            (index: join by share code)
 // ============================================================
@@ -17,6 +18,7 @@ let userTripsListenerRef = null;
 function membersRef(){ return db.ref('trips/' + currentTripId + '/members'); }
 function expensesRef(){ return db.ref('trips/' + currentTripId + '/expenses'); }
 function notesRef(){ return db.ref('trips/' + currentTripId + '/notes'); }
+function paymentsRef(){ return db.ref('trips/' + currentTripId + '/payments'); }
 
 function genTripCode(){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

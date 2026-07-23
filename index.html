@@ -222,7 +222,7 @@
                 <div class="summary-value" id="totalExpense">₹0</div>
               </div>
             </div>
-            <div class="summary-sub"><span id="totalMemberEntries">0</span> <span data-i18n="entriesLabel">એન્ટ્રી</span></div>
+            <div class="summary-sub"><span id="totalExpenseEntries">0</span> <span data-i18n="entriesLabel">એન્ટ્રી</span></div>
           </div>
 
           <div class="summary-card">
@@ -233,7 +233,18 @@
                 <div class="summary-value" id="totalMemberPeople">0</div>
               </div>
             </div>
-            <div class="summary-sub" data-i18n="inGroup">In Group</div>
+            <div class="summary-sub"><span id="totalMemberEntries">0</span> <span data-i18n="memberEntriesLabel">સભ્ય એન્ટ્રી</span></div>
+          </div>
+
+          <div class="summary-card summary-card-wide">
+            <div class="card-top">
+              <div class="summary-icon">÷</div>
+              <div style="min-width:0">
+                <div class="summary-label" data-i18n="avgPerPersonLabel">સરેરાશ (વ્યક્તિ દીઠ)</div>
+                <div class="summary-value" id="avgPerPerson">₹0</div>
+              </div>
+            </div>
+            <!-- <div class="summary-sub" data-i18n="perHeadHint">કુલ ખર્ચ ÷ કુલ સભ્ય</div> -->
           </div>
         </div>
       </div>
@@ -247,8 +258,18 @@
         <span data-i18n="shareSettlementBtnLabel">સેટલમેન્ટ WhatsApp પર શેર કરો</span>
       </button>
 
+      <button class="btn-primary btn-record-payment" id="recordPaymentBtn">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        <span data-i18n="recordPaymentBtnLabel">પેમેન્ટ રેકોર્ડ કરો</span>
+      </button>
+
       <h2 class="section-title" data-i18n="balanceTitle">બેલેન્સ પ્રમાણે</h2>
       <div id="balanceList" class="card-list"></div>
+
+      <h2 class="section-title" data-i18n="paymentHistoryTitle">પેમેન્ટ હિસ્ટ્રી</h2>
+      <div id="paymentsList" class="card-list">
+        <p class="empty-hint" data-i18n="noPayments">હજુ કોઈ પેમેન્ટ નથી</p>
+      </div>
     </section>
 
     <!-- MEMBERS -->
@@ -407,10 +428,12 @@
       <input type="text" id="expenseNote" data-i18n-placeholder="notePlaceholder" />
     </label>
     <label class="field">
-      <span>Payment</span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <label style="margin:0;"><input type="radio" name="expensePayment" value="cash" checked /> Cash</label>
-        <label style="margin:0;"><input type="radio" name="expensePayment" value="online" /> Online</label>
+      <span data-i18n="paymentMethodLabel">Payment</span>
+      <div class="segmented-toggle">
+        <input type="radio" name="expensePayment" id="paymentCash" value="cash" checked class="segmented-input" />
+        <label for="paymentCash" class="segmented-option" data-i18n="paymentCashLabel">Cash</label>
+        <input type="radio" name="expensePayment" id="paymentOnline" value="online" class="segmented-input" />
+        <label for="paymentOnline" class="segmented-option" data-i18n="paymentOnlineLabel">Online</label>
       </div>
     </label>
     <div class="modal-actions">
@@ -419,6 +442,40 @@
       <button class="btn-primary" id="expenseSaveBtn" data-i18n="saveBtn">સેવ કરો</button>
     </div>
     <input type="hidden" id="expenseEditId" />
+  </div>
+</div>
+
+<!-- MODAL: Record / Edit Payment (settle-up) -->
+<div id="paymentModal" class="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="paymentModalTitle" data-i18n="paymentModalTitleNew">પેમેન્ટ રેકોર્ડ કરો</h3>
+    <label class="field">
+      <span data-i18n="fromLabel">કોણે ચૂકવ્યા (From)</span>
+      <select id="paymentFrom"></select>
+    </label>
+    <label class="field">
+      <span data-i18n="toLabel">કોને ચૂકવ્યા (To)</span>
+      <select id="paymentTo"></select>
+    </label>
+    <label class="field">
+      <span data-i18n="amountLabel">રકમ (₹)</span>
+      <input type="number" id="paymentAmount" min="0" placeholder="દા.ત. 500" />
+    </label>
+    <label class="field">
+      <span data-i18n="paidOnLabel">તારીખ</span>
+      <input type="date" id="paymentDate" />
+    </label>
+    <label class="field">
+      <span data-i18n="noteLabel">નોંધ (વૈકલ્પિક)</span>
+      <input type="text" id="paymentNote" data-i18n-placeholder="notePlaceholder" />
+    </label>
+    <input type="hidden" id="paymentEditId" />
+    <div class="modal-actions">
+      <button class="btn-secondary" id="paymentDeleteBtn" data-i18n="deleteBtn" style="display:none;">ડિલીટ કરો</button>
+      <button class="btn-ghost" data-i18n="cancelBtn" onclick="closeModal('paymentModal')">રદ કરો</button>
+      <button class="btn-primary" id="paymentSaveBtn" data-i18n="saveBtn">સેવ કરો</button>
+    </div>
   </div>
 </div>
 

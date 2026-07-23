@@ -8,6 +8,7 @@
 let members = {};   // id -> {name, count}
 let expenses = {};  // id -> {amount, paidBy, includedMembers, date, note}
 let notes = {};     // id -> { title, content, createdAt }
+let payments = {};  // id -> {from, to, amount, date, note, createdAt} - settle-up records
 
 const AVATAR_COLORS = ['#0b8457','#2563eb','#c0392b','#9333ea','#d97706','#0891b2'];
 
@@ -151,6 +152,8 @@ document.getElementById('fab').addEventListener('click', ()=>{
   const active = document.querySelector('.nav-btn.active').dataset.screen;
   if(active === 'members'){
     openMemberModal(null);
+  } else if(active === 'home'){
+    openPaymentModal(null);
   } else {
     if(active === 'expenses') openExpenseModal(null);
     else if(active === 'notes') openNoteModal(null);
@@ -163,16 +166,19 @@ function attachTripListeners(){
   membersRef().on('value', membersListener);
   expensesRef().on('value', expensesListener);
   if(typeof notesRef === 'function') notesRef().on('value', notesListener);
+  if(typeof paymentsRef === 'function') paymentsRef().on('value', paymentsListener);
 }
 
 function detachTripListeners(){
   members = {};
   expenses = {};
   notes = {};
+  payments = {};
   if(currentTripId){
     membersRef().off('value', membersListener);
     expensesRef().off('value', expensesListener);
     if(typeof notesRef === 'function') notesRef().off('value', notesListener);
+    if(typeof paymentsRef === 'function') paymentsRef().off('value', paymentsListener);
   }
 }
 
@@ -181,6 +187,7 @@ function membersListener(snap){
   renderMembers();
   renderSettlement();
   populateExpenseForm();
+  populatePaymentForm();
 }
 
 function expensesListener(snap){
@@ -192,6 +199,12 @@ function expensesListener(snap){
 function notesListener(snap){
   notes = snap.val() || {};
   renderNotes();
+}
+
+function paymentsListener(snap){
+  payments = snap.val() || {};
+  renderSettlement();
+  renderPayments();
 }
 
 function openNoteModal(id){
@@ -459,14 +472,18 @@ function renderExpenses(){
   ids.sort((a,b)=>{
     const ea = expenses[a] || {};
     const eb = expenses[b] || {};
+    const da = ea.date || '';
+    const db = eb.date || '';
+    if(db !== da) return db.localeCompare(da); // newest date first
     const ca = Number(ea.createdAt) || 0;
     const cb = Number(eb.createdAt) || 0;
-    if(cb !== ca) return cb - ca;
-    return (eb.date||'').localeCompare(ea.date||'');
+    return cb - ca; // same date: most recently added first
   });
   let total = 0;
   Object.values(expenses).forEach(e => total += Number(e.amount));
   document.getElementById('totalExpense').textContent = fmt(total);
+  const expenseEntriesEl = document.getElementById('totalExpenseEntries');
+  if(expenseEntriesEl) expenseEntriesEl.textContent = Object.keys(expenses).length;
   updateAvgPerPerson(total);
 
   if(ids.length === 0){
@@ -522,7 +539,7 @@ function renderExpenses(){
           <div class="item-avatar" style="background:${colorFor(e.paidBy||id)}">${payer.charAt(0)}</div>
                 <div class="item-body">
                   <div class="item-title">${e.note ? e.note : payer + ' ' + t('paidSuffix')}</div>
-                  <div class="item-sub">${payer} ${t('paidWord')}${e.date ? ' • ' + e.date : ''} ${e.paymentMethod ? ' • ' + (e.paymentMethod === 'cash' ? 'Cash' : 'Online') : ''}</div>
+                  <div class="item-sub">${payer} ${t('paidWord')}${e.date ? ' • ' + e.date : ''} ${e.paymentMethod ? ' • ' + (e.paymentMethod === 'cash' ? t('paymentCashLabel') : t('paymentOnlineLabel')) : ''}</div>
                 </div>
           <div class="item-trail">
             <div class="item-amount">${fmt(e.amount)}</div>
@@ -548,7 +565,12 @@ function gatherFilteredExpenses(){
     if(from && (!e.date || e.date < from)) return false;
     if(to && (!e.date || e.date > to)) return false;
     return true;
-  }).sort((a,b)=> (expenses[b].createdAt||0) - (expenses[a].createdAt||0));
+  }).sort((a,b)=>{
+    const ea = expenses[a] || {}, eb = expenses[b] || {};
+    const da = ea.date || '', db = eb.date || '';
+    if(db !== da) return db.localeCompare(da);
+    return (Number(eb.createdAt)||0) - (Number(ea.createdAt)||0);
+  });
   return ids.map(id => ({ id, ...expenses[id] }));
 }
 
@@ -665,6 +687,16 @@ function computeBalances(){
     }
   });
 
+  // Direct settle-up payments between members reduce what's owed:
+  // "from" already handed over the money, so their debt shrinks;
+  // "to" already received it, so what they're owed shrinks.
+  Object.values(payments).forEach(p=>{
+    if(!members[p.from] || !members[p.to]) return;
+    const amt = Number(p.amount) || 0;
+    balance[p.from] = (balance[p.from] || 0) + amt;
+    balance[p.to] = (balance[p.to] || 0) - amt;
+  });
+
   return balance; // positive = should receive, negative = should pay
 }
 
@@ -712,6 +744,10 @@ function renderSettlement(){
           </span>
           <span class="settle-name">${toName}</span>
           <span class="settle-amount">${fmt(txn.amount)}</span>
+          <button class="btn-mark-paid" onclick="quickRecordPayment('${txn.from}','${txn.to}',${txn.amount})">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span data-i18n="markPaidBtn">${t('markPaidBtn')}</span>
+          </button>
         </div>`;
     }).join('');
   }
@@ -735,6 +771,136 @@ function renderSettlement(){
 
 const shareSettlementBtn = document.getElementById('shareSettlementBtn');
 if(shareSettlementBtn) shareSettlementBtn.addEventListener('click', shareSettlementOnWhatsApp);
+
+// ---------------- Payments (record "I paid this to this person") ----------------
+function populatePaymentForm(){
+  const fromSel = document.getElementById('paymentFrom');
+  const toSel = document.getElementById('paymentTo');
+  if(!fromSel || !toSel) return;
+  const ids = Object.keys(members);
+  const options = ids.map(id => `<option value="${id}">${members[id].name}</option>`).join('')
+    || `<option value="">${t('memberSelectPlaceholder')}</option>`;
+  const prevFrom = fromSel.value, prevTo = toSel.value;
+  fromSel.innerHTML = options;
+  toSel.innerHTML = options;
+  if(ids.includes(prevFrom)) fromSel.value = prevFrom;
+  if(ids.includes(prevTo)) toSel.value = prevTo;
+}
+
+function openPaymentModal(id, prefill){
+  if(Object.keys(members).length < 2){
+    showToast(t('addMemberFirst'));
+    return;
+  }
+  populatePaymentForm();
+  document.getElementById('paymentModalTitle').textContent = id ? t('paymentModalTitleEdit') : t('paymentModalTitleNew');
+  document.getElementById('paymentEditId').value = id || '';
+  document.getElementById('paymentDeleteBtn').style.display = id ? 'block' : 'none';
+
+  if(id){
+    const p = payments[id];
+    document.getElementById('paymentFrom').value = p.from;
+    document.getElementById('paymentTo').value = p.to;
+    document.getElementById('paymentAmount').value = p.amount;
+    document.getElementById('paymentDate').value = p.date;
+    document.getElementById('paymentNote').value = p.note || '';
+  } else {
+    document.getElementById('paymentAmount').value = (prefill && prefill.amount) ? Math.round(prefill.amount * 100) / 100 : '';
+    document.getElementById('paymentDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('paymentNote').value = '';
+    if(prefill && prefill.from) document.getElementById('paymentFrom').value = prefill.from;
+    if(prefill && prefill.to) document.getElementById('paymentTo').value = prefill.to;
+  }
+  openModal('paymentModal');
+}
+
+const recordPaymentBtn = document.getElementById('recordPaymentBtn');
+if(recordPaymentBtn) recordPaymentBtn.addEventListener('click', ()=> openPaymentModal(null));
+
+const paymentSaveBtn = document.getElementById('paymentSaveBtn');
+if(paymentSaveBtn) paymentSaveBtn.addEventListener('click', ()=>{
+  const from = document.getElementById('paymentFrom').value;
+  const to = document.getElementById('paymentTo').value;
+  const amount = parseFloat(document.getElementById('paymentAmount').value);
+  const date = document.getElementById('paymentDate').value;
+  const note = document.getElementById('paymentNote').value.trim();
+  const editId = document.getElementById('paymentEditId').value;
+
+  if(!from || !to){ showToast(t('toastPaidByNeeded')); return; }
+  if(from === to){ showToast(t('toastFromToSame')); return; }
+  if(!amount || amount <= 0){ showToast(t('toastAmountNeeded')); return; }
+
+  const data = { from, to, amount, date, note };
+  if(editId){
+    paymentsRef().child(editId).update(data);
+    showToast(t('toastPaymentUpdated'));
+  } else {
+    data.createdAt = firebase.database.ServerValue.TIMESTAMP;
+    paymentsRef().push(data);
+    showToast(t('toastPaymentAdded'));
+  }
+  closeModal('paymentModal');
+});
+
+const paymentDeleteBtn = document.getElementById('paymentDeleteBtn');
+if(paymentDeleteBtn) paymentDeleteBtn.addEventListener('click', ()=>{
+  const editId = document.getElementById('paymentEditId').value;
+  if(!editId) return;
+  if(confirm(t('confirmPaymentDelete'))){
+    paymentsRef().child(editId).remove();
+    closeModal('paymentModal');
+    showToast(t('toastPaymentDeleted'));
+  }
+});
+
+// One-tap "mark as paid" straight from a suggested settlement row
+function quickRecordPayment(fromId, toId, amount){
+  if(!confirm(t('confirmMarkPaid'))) return;
+  paymentsRef().push({
+    from: fromId,
+    to: toId,
+    amount: Math.round(amount * 100) / 100,
+    date: new Date().toISOString().slice(0,10),
+    note: '',
+    createdAt: firebase.database.ServerValue.TIMESTAMP
+  });
+  showToast(t('toastPaymentAdded'));
+}
+
+function renderPayments(){
+  const wrap = document.getElementById('paymentsList');
+  if(!wrap) return;
+  const ids = Object.keys(payments).sort((a,b)=>{
+    const pa = payments[a] || {};
+    const pb = payments[b] || {};
+    const da = pa.date || '';
+    const db = pb.date || '';
+    if(db !== da) return db.localeCompare(da); // newest date first
+    return (Number(pb.createdAt)||0) - (Number(pa.createdAt)||0);
+  });
+  if(ids.length === 0){
+    wrap.innerHTML = `<p class="empty-hint">${t('noPayments')}</p>`;
+    return;
+  }
+  wrap.innerHTML = ids.map(id=>{
+    const p = payments[id];
+    const fromName = members[p.from] ? members[p.from].name : '?';
+    const toName = members[p.to] ? members[p.to].name : '?';
+    return `
+      <div class="item-card" onclick="openPaymentModal('${id}')">
+        <div class="item-avatar" style="background:${colorFor(id)}">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        </div>
+        <div class="item-body">
+          <div class="item-title">${fromName} → ${toName}</div>
+          <div class="item-sub">${p.date || ''}${p.note ? ' • ' + p.note : ''}</div>
+        </div>
+        <div class="item-trail">
+          <div class="item-amount get">${fmt(p.amount)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
 
 // ---------------- PWA: service worker ----------------
 if('serviceWorker' in navigator){
