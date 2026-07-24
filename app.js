@@ -343,6 +343,40 @@ function renderMembers(){
 }
 
 // ---------------- Expenses ----------------
+
+// Share stepper config: shares move in 0.5 steps (0, 0.5, 1, 1.5, 2 ...)
+const SHARE_STEP = 0.5;
+const SHARE_MIN = 0;
+const SHARE_MAX = 20;
+const SHARE_DEFAULT = 1;
+
+// Round to nearest 0.5 and clamp to [SHARE_MIN, SHARE_MAX]
+function clampShare(v){
+  v = Math.round(v / SHARE_STEP) * SHARE_STEP;
+  if(v < SHARE_MIN) v = SHARE_MIN;
+  if(v > SHARE_MAX) v = SHARE_MAX;
+  // avoid floating point artifacts like 1.4999999999999998
+  return Math.round(v * 100) / 100;
+}
+
+// Display "1" instead of "1.0", but "1.5" stays "1.5"
+function formatShareValue(v){
+  v = clampShare(v);
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+function defaultShareValue(){
+  return SHARE_DEFAULT;
+}
+
+// The weight used to split an expense for a given member id:
+// prefers the expense's own custom share, falls back to the
+// member's household headcount for expenses saved before this feature.
+function expenseWeight(e, mid){
+  if(e && e.shares && e.shares[mid] != null) return Number(e.shares[mid]) || 0;
+  return Number(members[mid] && members[mid].count || 0);
+}
+
 function populateExpenseForm(){
   const paidBySel = document.getElementById('expensePaidBy');
   const checkWrap = document.getElementById('expenseMembersCheck');
@@ -357,29 +391,116 @@ function populateExpenseForm(){
   }
 
   const rows = ids.map(id => `
-    <label class="checkbox-row">
-      <input type="checkbox" value="${id}" class="member-check" />
-      <span>${members[id].name} (${members[id].count})</span>
-    </label>`).join('');
+    <div class="share-row" data-id="${id}">
+      <div class="share-left">
+        <span class="share-check" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <div class="share-name">${members[id].name} <span class="share-count">(${members[id].count})</span></div>
+      </div>
+      <div class="share-stepper" data-value="0"></div>
+    </div>`).join('');
 
   checkWrap.innerHTML = `
-    <label class="checkbox-row select-all-row">
-      <input type="checkbox" id="selectAllMembers" />
-      <span>${t('selectAllLabel')}</span>
-    </label>
+    <div class="share-toolbar">
+      <button type="button" class="share-toolbar-btn" id="selectAllMembers">${t('selectAllLabel')}</button>
+      <button type="button" class="share-toolbar-btn share-toolbar-clear" id="clearAllShares">${t('clearAllLabel')}</button>
+    </div>
     ${rows}`;
 
-  const selectAllBox = document.getElementById('selectAllMembers');
-  const memberBoxes = () => Array.from(document.querySelectorAll('.member-check'));
+  wireShareSteppers();
+}
 
-  selectAllBox.addEventListener('change', ()=>{
-    memberBoxes().forEach(cb => cb.checked = selectAllBox.checked);
-  });
-  memberBoxes().forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      selectAllBox.checked = memberBoxes().every(box => box.checked);
+// Wires up each row's tap-to-select + fine-tune stepper, plus the
+// select-all / clear-all toolbar. Every row manages only its own DOM
+// and its own data-value — selecting one member never touches another.
+function wireShareSteppers(){
+  const rows = Array.from(document.querySelectorAll('#expenseMembersCheck .share-row[data-id]'));
+
+  rows.forEach(row=>{
+    const id = row.dataset.id;
+    const stepperEl = row.querySelector('.share-stepper');
+    stepperEl.addEventListener('click', (ev)=> ev.stopPropagation());
+
+    // Rebuilds this row's right-hand control to match its current value:
+    // 0 -> a single round "+" button; >0 -> a full "− value +" stepper.
+    // Only ever touches this row's own elements.
+    const renderControl = ()=>{
+      const v = Number(stepperEl.dataset.value || 0);
+      row.classList.toggle('active', v > 0);
+      stepperEl.classList.toggle('has-value', v > 0);
+
+      if(v > 0){
+        stepperEl.innerHTML = `
+          <button type="button" class="share-btn share-minus" aria-label="minus">−</button>
+          <span class="share-value">${formatShareValue(v)}</span>
+          <button type="button" class="share-btn share-plus" aria-label="plus">+</button>`;
+        stepperEl.querySelector('.share-minus').addEventListener('click', (ev)=>{
+          ev.stopPropagation();
+          setVal(v - SHARE_STEP);
+        });
+        stepperEl.querySelector('.share-plus').addEventListener('click', (ev)=>{
+          ev.stopPropagation();
+          setVal(v + SHARE_STEP);
+        });
+      } else {
+        stepperEl.innerHTML = `<button type="button" class="share-add-btn" aria-label="add">+</button>`;
+        stepperEl.querySelector('.share-add-btn').addEventListener('click', (ev)=>{
+          ev.stopPropagation();
+          setVal(defaultShareValue());
+        });
+      }
+    };
+
+    const setVal = (v)=>{
+      stepperEl.dataset.value = clampShare(v);
+      renderControl();
+      updateSelectAllToolbarState();
+    };
+
+    // Tap anywhere on the row (name/checkmark area) to quick-toggle just
+    // THIS member: 0 -> their default share, back to 0 on a second tap.
+    // Clicks on the +/- (or the add button) stop propagation above, so
+    // this only fires for taps outside the stepper control.
+    row.addEventListener('click', ()=>{
+      const current = Number(stepperEl.dataset.value || 0);
+      setVal(current > 0 ? 0 : defaultShareValue());
     });
+
+    renderControl();
+    row._setShareValue = setVal;
   });
+
+  // Select-all toolbar button is a real toggle: tap once to fill everyone
+  // in at their default share, tap again (once everyone's selected) to
+  // clear everyone back out.
+  const selectAllBtn = document.getElementById('selectAllMembers');
+  if(selectAllBtn){
+    selectAllBtn.addEventListener('click', ()=>{
+      const allActive = rows.length > 0 && rows.every(r => Number(r.querySelector('.share-stepper').dataset.value) > 0);
+      rows.forEach(row=>{
+        const nextVal = allActive ? 0 : defaultShareValue();
+        row._setShareValue(nextVal);
+      });
+    });
+  }
+
+  const clearAllBtn = document.getElementById('clearAllShares');
+  if(clearAllBtn){
+    clearAllBtn.addEventListener('click', ()=>{
+      rows.forEach(row => row._setShareValue(0));
+    });
+  }
+
+  updateSelectAllToolbarState();
+}
+
+function updateSelectAllToolbarState(){
+  const selectAllBtn = document.getElementById('selectAllMembers');
+  if(!selectAllBtn) return;
+  const rows = Array.from(document.querySelectorAll('#expenseMembersCheck .share-row[data-id]'));
+  const allActive = rows.length > 0 && rows.every(r => Number(r.querySelector('.share-stepper').dataset.value) > 0);
+  selectAllBtn.classList.toggle('active', allActive);
 }
 
 function openExpenseModal(id){
@@ -402,12 +523,19 @@ function openExpenseModal(id){
     const pmEl = document.querySelectorAll('input[name="expensePayment"]');
     pmEl.forEach(r => r.checked = (r.value === pm));
     document.getElementById('expenseNote').value = e.note || '';
-    const boxes = document.querySelectorAll('.member-check');
-    boxes.forEach(cb=>{
-      cb.checked = e.includedMembers.includes(cb.value);
+    const shareRows = document.querySelectorAll('#expenseMembersCheck .share-row[data-id]');
+    shareRows.forEach(row=>{
+      const mid = row.dataset.id;
+      let v = 0;
+      if(e.shares && e.shares[mid] != null){
+        v = Number(e.shares[mid]);
+      } else if(e.includedMembers && e.includedMembers.includes(mid)){
+        // pre-shares expense: approximate its old count-based split
+        v = Number((members[mid] && members[mid].count) || 1);
+      }
+      if(row._setShareValue) row._setShareValue(v);
     });
-    const selectAllBox = document.getElementById('selectAllMembers');
-    if(selectAllBox) selectAllBox.checked = Array.from(boxes).every(cb => cb.checked);
+    updateSelectAllToolbarState();
   } else {
     document.getElementById('expenseAmount').value = '';
     document.getElementById('expenseDate').value = new Date().toISOString().slice(0,10);
@@ -423,14 +551,20 @@ document.getElementById('expenseSaveBtn').addEventListener('click', ()=>{
   const paymentMethodEl = document.querySelector('input[name="expensePayment"]:checked');
   const paymentMethod = paymentMethodEl ? paymentMethodEl.value : 'cash';
   const note = document.getElementById('expenseNote').value.trim();
-  const included = Array.from(document.querySelectorAll('.member-check:checked')).map(cb=>cb.value);
+
+  const shares = {};
+  document.querySelectorAll('#expenseMembersCheck .share-row[data-id]').forEach(row=>{
+    const v = Number(row.querySelector('.share-stepper').dataset.value || 0);
+    if(v > 0) shares[row.dataset.id] = v;
+  });
+  const included = Object.keys(shares);
   const editId = document.getElementById('expenseEditId').value;
 
   if(!amount || amount <= 0){ showToast(t('toastAmountNeeded')); return; }
   if(!paidBy){ showToast(t('toastPaidByNeeded')); return; }
   if(included.length === 0){ showToast(t('toastMembersNeeded')); return; }
 
-  const data = { amount, paidBy, includedMembers: included, date, note, paymentMethod };
+  const data = { amount, paidBy, includedMembers: included, shares, date, note, paymentMethod };
   if(editId){
     expensesRef().child(editId).update(data);
     showToast(t('toastExpenseUpdated'));
@@ -513,16 +647,21 @@ function renderExpenses(){
     if(!e) return;
     const payer = members[e.paidBy] ? members[e.paidBy].name : '?';
     const included = e.includedMembers.filter(mid => members[mid]);
-    const totalIndividuals = included.reduce((sum, mid) => sum + Number(members[mid].count || 0), 0);
-    const perPerson = totalIndividuals > 0 ? Number(e.amount) / totalIndividuals : 0;
+    const usesCustomShares = !!e.shares;
+    const totalWeight = included.reduce((sum, mid) => sum + expenseWeight(e, mid), 0);
+    const perUnit = totalWeight > 0 ? Number(e.amount) / totalWeight : 0;
 
     const breakdownRows = included.map(mid=>{
       const m = members[mid];
-      const share = perPerson * Number(m.count || 0);
+      const w = expenseWeight(e, mid);
+      const share = perUnit * w;
       const isPayer = mid === e.paidBy;
+      const weightLabel = usesCustomShares
+        ? `${formatShareValue(w)} ${t('shareUnitLabel')}`
+        : `${m.count} ${t('personWord')}`;
       return `
         <div class="breakdown-row">
-          <span>${m.name} (${m.count} ${t('personWord')})${isPayer ? ' 💰' : ''}</span>
+          <span>${m.name} (${weightLabel})${isPayer ? ' 💰' : ''}</span>
           <span>${fmt(share)}</span>
         </div>`;
     }).join('');
@@ -546,7 +685,7 @@ function renderExpenses(){
           </div>
         </div>
         <div class="breakdown-box">
-          <div class="breakdown-head">${t('perPersonPrefix')} ${totalIndividuals} ${t('perPersonMiddle')} ${fmt(perPerson)}</div>
+          <div class="breakdown-head">${t('perPersonPrefix')} ${formatShareValue(totalWeight)} ${t('perPersonMiddle')} ${fmt(perUnit)}</div>
           ${breakdownRows}
         </div>
       </div>`);
@@ -602,10 +741,10 @@ function exportExpensesAsCSV(rows){
   const totals = {};
   rows.forEach(r=>{
     const included = (r.includedMembers||[]).filter(id=>members[id]);
-    const totalIndividuals = included.reduce((s, mid) => s + Number(members[mid].count || 0), 0);
-    const perPerson = totalIndividuals > 0 ? Number(r.amount) / totalIndividuals : 0;
+    const totalWeight = included.reduce((s, mid) => s + expenseWeight(r, mid), 0);
+    const perUnit = totalWeight > 0 ? Number(r.amount) / totalWeight : 0;
     included.forEach(mid=>{
-      totals[mid] = (totals[mid] || 0) + perPerson * Number(members[mid].count || 0);
+      totals[mid] = (totals[mid] || 0) + perUnit * expenseWeight(r, mid);
     });
   });
   lines.push('');
@@ -672,13 +811,13 @@ function computeBalances(){
     const included = e.includedMembers.filter(id => members[id]);
     if(included.length === 0) return;
 
-    const totalIndividuals = included.reduce((sum, id) => sum + Number(members[id].count || 0), 0);
-    if(totalIndividuals <= 0) return;
+    const totalWeight = included.reduce((sum, id) => sum + expenseWeight(e, id), 0);
+    if(totalWeight <= 0) return;
 
-    const perPerson = Number(e.amount) / totalIndividuals;
+    const perUnit = Number(e.amount) / totalWeight;
 
     included.forEach(id=>{
-      const share = perPerson * Number(members[id].count || 0);
+      const share = perUnit * expenseWeight(e, id);
       balance[id] = (balance[id] || 0) - share;
     });
 
@@ -906,6 +1045,18 @@ function renderPayments(){
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+
+  // When a newly-deployed service worker takes over (because it called
+  // skipWaiting + clients.claim in sw.js), the page it's currently
+  // controlling is still running old cached JS in memory. Reload once,
+  // automatically, so the update actually takes effect right away
+  // instead of needing a manual hard refresh / cache clear.
+  let swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(swRefreshing) return;
+    swRefreshing = true;
+    window.location.reload();
   });
 }
 

@@ -133,7 +133,9 @@ const TRANSLATIONS = {
     perHeadHint: "કુલ ખર્ચ ÷ કુલ સભ્ય",
     paymentMethodLabel: "ચૂકવણી",
     paymentCashLabel: "રોકડ",
-    paymentOnlineLabel: "ઓનલાઇન"
+    paymentOnlineLabel: "ઓનલાઇન",
+    shareUnitLabel: "ભાગ",
+    clearAllLabel: "બધા સાફ કરો"
   },
   en: {
     appTitle: "Kharcha Hisab",
@@ -265,7 +267,9 @@ const TRANSLATIONS = {
     perHeadHint: "Total expense ÷ total members",
     paymentMethodLabel: "Payment",
     paymentCashLabel: "Cash",
-    paymentOnlineLabel: "Online"
+    paymentOnlineLabel: "Online",
+    shareUnitLabel: "shares",
+    clearAllLabel: "Clear All"
   }
 };
 

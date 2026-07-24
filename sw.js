@@ -78,30 +78,32 @@ self.addEventListener('fetch', (event)=>{
     return;
   }
 
-  // App shell assets - cache first, network fallback
+  // App shell assets (your own html/js/css) - network first, cache fallback.
+  // This means whenever the device has internet, it always fetches the
+  // latest deployed files first, and only falls back to the cached copy
+  // when offline. This is what makes updates (like this fix) show up
+  // immediately on next load instead of waiting for the cache to expire.
   event.respondWith(
-    caches.match(request)
-      .then(cached => {
-        if(cached) return cached;
-        return fetch(request)
-          .then(response => {
-            if(!response || response.status !== 200 || response.type === 'error'){
-              return response;
-            }
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then(c => c.put(request, responseClone)).catch(err => {
-              console.warn('Cache put failed:', err);
-            });
-            return response;
-          })
-          .catch(() => {
-            if(request.mode === 'navigate'){
-              return caches.match('./index.html').catch(() => 
-                new Response('Offline', {status: 503})
-              );
-            }
-            return new Response('Offline - resource not available', {status: 503});
+    fetch(request)
+      .then(response => {
+        if(response && response.status === 200 && response.type !== 'error'){
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then(c => c.put(request, responseClone)).catch(err => {
+            console.warn('Cache put failed:', err);
           });
+        }
+        return response;
+      })
+      .catch(() => {
+        return caches.match(request).then(cached => {
+          if(cached) return cached;
+          if(request.mode === 'navigate'){
+            return caches.match('./index.html').catch(() =>
+              new Response('Offline', {status: 503})
+            );
+          }
+          return new Response('Offline - resource not available', {status: 503});
+        });
       })
   );
 });
